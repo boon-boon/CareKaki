@@ -1,4 +1,4 @@
-import { extractCareTiming, parseCareSchedule, shiftEnd } from './intake-form';
+import { extractCareTiming, parseBudgetMYR, parseCareSchedule, shiftEnd } from './intake-form';
 
 describe('shiftEnd', () => {
   it('adds a duration to a start time', () => {
@@ -14,6 +14,25 @@ describe('shiftEnd', () => {
 });
 
 describe('extractCareTiming', () => {
+  it('reads standalone 12-hour times and converts them to 24-hour format', () => {
+    for (const [input, expected] of [
+      ['1pm', '13:00'],
+      ['1 pm', '13:00'],
+      ['1:30pm', '13:30'],
+      ['12am', '00:00'],
+      ['12pm', '12:00'],
+      ['9am', '09:00'],
+      ['13:00', '13:00'],
+    ]) {
+      expect(extractCareTiming(input).start).toBe(expected);
+    }
+  });
+
+  it('does not mistake an amount or date for a start time', () => {
+    expect(extractCareTiming('150').start).toBe('');
+    expect(extractCareTiming('2026-10-17').start).toBe('');
+  });
+
   it('reads an ISO date and a clock range', () => {
     const t = extractCareTiming('elderly care on 2026-10-17 from 09:00 to 17:00');
     expect(t.date).toBe('2026-10-17');
@@ -50,7 +69,46 @@ describe('extractCareTiming', () => {
   });
 });
 
+describe('parseBudgetMYR', () => {
+  it('accepts a plain amount in the budget question as MYR', () => {
+    expect(parseBudgetMYR('150', true)).toBe(150);
+    expect(parseBudgetMYR(' 150.50 ', true)).toBe(150.50);
+  });
+
+  it('accepts explicit currency and unlabeled MYR budget statements', () => {
+    expect(parseBudgetMYR('RM150')).toBe(150);
+    expect(parseBudgetMYR('150 ringgit')).toBe(150);
+    expect(parseBudgetMYR('Budget is 150')).toBe(150);
+    expect(parseBudgetMYR('max budget 200')).toBe(200);
+  });
+
+  it('does not misidentify unrelated dates, times, or invalid budgets', () => {
+    expect(parseBudgetMYR('2026-10-17')).toBeUndefined();
+    expect(parseBudgetMYR('1pm')).toBeUndefined();
+    expect(parseBudgetMYR('150')).toBeUndefined();
+    expect(parseBudgetMYR('0', true)).toBeUndefined();
+    expect(parseBudgetMYR('-150', true)).toBeUndefined();
+  });
+});
+
 describe('parseCareSchedule', () => {
+  it('maps weekday(s) to Monday through Friday and weekend(s) to Saturday and Sunday', () => {
+    for (const word of ['weekday', 'weekdays']) {
+      const result = parseCareSchedule(word + ' 9am to 5pm, starting 2026-10-12');
+      expect(result.days).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+      expect(result.recurring).toBe(true);
+      expect(result.concreteDates.every(date =>
+        [1, 2, 3, 4, 5].includes(new Date(date + 'T00:00:00Z').getUTCDay()))).toBe(true);
+    }
+    for (const word of ['weekend', 'weekends']) {
+      const result = parseCareSchedule(word + ' 9am to 5pm, starting 2026-10-17');
+      expect(result.days).toEqual(['Sat', 'Sun']);
+      expect(result.recurring).toBe(true);
+      expect(result.concreteDates.every(date =>
+        [0, 6].includes(new Date(date + 'T00:00:00Z').getUTCDay()))).toBe(true);
+    }
+  });
+
   it('expands a two-day weekly pattern from an anchor date', () => {
     const s = parseCareSchedule('Saturdays and Sundays, 9am to 5pm, starting 1 November');
     expect(s.recurring).toBe(true);

@@ -395,11 +395,11 @@
                 </div>
                 <div class="entity-value">
                   {{ formatDate(p.start_date) || 'Not specified' }}
-                  <span class="entity-meta">Active search date &middot; ISO: {{ p.start_date || 'None' }}</span>
+                  <span class="entity-meta">{{ p.schedule_dates?.length ? 'Recurring schedule start date' : 'Care date' }} &middot; ISO: {{ p.start_date || 'None' }}</span>
                 </div>
                 @if (p.schedule_dates && p.schedule_dates.length > 1) {
                   <div class="schedule-chips">
-                    <span class="schedule-chips-label">Upcoming occurrences — pick one:</span>
+                    <span class="schedule-chips-label">All {{ p.schedule_dates.length }} upcoming visits are included. Choose a later start date if needed:</span>
                     <div class="schedule-chip-row">
                       @for (d of p.schedule_dates; track d) {
                         <button
@@ -493,6 +493,12 @@
                     <div class="summary-col"><span>Time:</span><strong>{{ val.draft_request?.start_time }} ({{ val.draft_request?.duration_hours }}h)</strong></div>
                     <div class="summary-col"><span>Budget:</span><strong>RM {{ val.draft_request?.max_budget }}</strong></div>
                   </div>
+                  @if (parsed()?.schedule_dates?.length) {
+                    <p class="confirm-desc" style="margin-top: 10px;">
+                      <strong>Recurring care: {{ daysLabel(parsed()!.schedule_days ?? []) }} · {{ parsed()!.schedule_dates!.length }} upcoming visits.</strong>
+                      RM {{ val.draft_request?.max_budget }} is the total budget for all visits, not for each day. Confirming checks the whole schedule.
+                    </p>
+                  }
 
                   <div class="confirm-actions">
                     <button class="btn btn-primary" (click)="confirmAndSearchMcp()">
