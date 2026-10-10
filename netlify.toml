@@ -27,6 +27,13 @@
   # removes a needless failure mode; the build command re-installs with
   # --include=dev so TypeScript is available for `npm run build`.
   NPM_FLAGS = "--ignore-scripts"
+  # Netlify's secrets scanner fails the build when the *value* of any configured
+  # environment variable appears in the repo or build output. These variables are
+  # plain configuration, not credentials, and their generic values (3000,
+  # ./carekaki_providers_demo.csv, gemini-2.5-flash, ...) legitimately appear in
+  # DEPLOY.md, README.md, .env.example and src/. Exclude just these keys so
+  # GEMINI_API_KEY is still scanned for real leaks.
+  SECRETS_SCAN_OMIT_KEYS = "PORT,CAREKAKI_PROVIDERS_CSV,CAREKAKI_LLM_MODE,CAREKAKI_LLM_TIMEOUT_MS,GEMINI_MODEL"
 
 # The MCP Streamable HTTP endpoint. `force` guarantees the function is reached
 # even though a catch-all SPA rewrite is declared below (first match wins).
