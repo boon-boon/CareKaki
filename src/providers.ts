@@ -51,6 +51,15 @@ export function normalizeDate(value: unknown): string {
   return `${fields.year}-${fields.month}-${fields.day}`;
 }
 
+/** Normalize spreadsheet-friendly H:mm into the canonical HH:mm format. */
+export function normalizeTime(value: unknown): string {
+  const match = /^(\d{1,2}):([0-5]\d)$/.exec(String(value ?? '').trim());
+  if (!match) return '';
+  const hour = Number(match[1]);
+  if (hour > 24 || (hour === 24 && match[2] !== '00')) return '';
+  return String(hour).padStart(2, '0') + ':' + match[2];
+}
+
 function toProvider(row: Record<string, string>): Provider {
   return {
     provider_id: String(row.provider_id ?? ''),
@@ -58,17 +67,14 @@ function toProvider(row: Record<string, string>): Provider {
     location: String(row.location ?? ''),
     hourly_rate: Number(row.hourly_rate),
     rating: Number(row.rating),
-    verified: row.verified === 'true' || String(row.verified).toLowerCase() === 'true',
+    verified: String(row.verified).toLowerCase() === 'true',
     services: splitValues(row.services).map(s => s.toLowerCase()),
     languages: splitValues(row.languages),
-    // Each CSV row carries exactly one availability window.
-    availability: [
-      {
-        date: normalizeDate(row.available_date),
-        start: String(row.available_from ?? ''),
-        end: String(row.available_to ?? ''),
-      },
-    ],
+    availability: [{
+      date: normalizeDate(row.available_date),
+      start: normalizeTime(row.available_from),
+      end: normalizeTime(row.available_to),
+    }],
   };
 }
 
@@ -90,20 +96,40 @@ export function loadProviders(csvPath = resolveCsvPath()): Provider[] {
     if (!row.hourly_rate?.trim() || !row.rating?.trim()) throw new Error(`Missing rate or rating for ${row.provider_id}`);
     const date = normalizeDate(row.available_date);
     const parsed = new Date(`${date}T00:00:00Z`);
-    const time = /^([01]\d|2[0-3]):[0-5]\d$/;
+    const from = normalizeTime(row.available_from);
+    const to = normalizeTime(row.available_to);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date ||
-        !time.test(row.available_from ?? '') || !(time.test(row.available_to ?? '') || row.available_to === '24:00') || row.available_from! >= row.available_to!) {
+        !from || !to || from === '24:00' || from >= to) {
       throw new Error(`Invalid availability for ${row.provider_id}`);
     }
     if (!['true', 'false'].includes(String(row.verified).toLowerCase())) throw new Error(`Invalid verified flag for ${row.provider_id}`);
   }
-  const providers = rows.filter(row => row.provider_id).map(toProvider);
+  const grouped = new Map<string, Provider>();
+  for (const row of rows.filter(row => row.provider_id)) {
+    const incoming = toProvider(row);
+    const existing = grouped.get(incoming.provider_id);
+    if (!existing) {
+      grouped.set(incoming.provider_id, incoming);
+      continue;
+    }
+    if (existing.name !== incoming.name || existing.location !== incoming.location ||
+        existing.hourly_rate !== incoming.hourly_rate || existing.rating !== incoming.rating ||
+        existing.verified !== incoming.verified ||
+        JSON.stringify(existing.services) !== JSON.stringify(incoming.services) ||
+        JSON.stringify(existing.languages) !== JSON.stringify(incoming.languages)) {
+      throw new Error(`Conflicting provider details for ${incoming.provider_id}`);
+    }
+    for (const slot of incoming.availability) {
+      if (!existing.availability.some(x => x.date === slot.date && x.start === slot.start && x.end === slot.end)) {
+        existing.availability.push(slot);
+      }
+    }
+  }
+  const providers = [...grouped.values()];
   if (!providers.length) throw new Error('Provider CSV has no provider records');
 
-  const ids = new Set<string>();
   for (const provider of providers) {
-    if (ids.has(provider.provider_id)) throw new Error(`Duplicate provider_id: ${provider.provider_id}`);
-    ids.add(provider.provider_id);
+    provider.availability.sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start));
     if (!provider.location || !Number.isFinite(provider.hourly_rate) || provider.hourly_rate < 0 ||
         !Number.isFinite(provider.rating) || provider.rating < 0 || provider.rating > 5) {
       throw new Error(`Invalid provider data for ${provider.provider_id}: check location, hourly_rate and rating`);

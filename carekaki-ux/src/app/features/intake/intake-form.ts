@@ -720,6 +720,27 @@ export class IntakeForm {
 
     this.mcpValidating.set(true);
     try {
+      // If a recurring schedule was requested without an explicit calendar date,
+      // never include a visit whose start time has already passed today.
+      // Move to the next valid recurring date, NOT a different time.
+      if (p.schedule_days?.length && p.start_date && p.shift_hours.start &&
+          !extractCareTiming(this.rawInput()).date) {
+        const parts = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: '2-digit',
+          day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+        }).formatToParts(new Date());
+        const get = (key: string) => parts.find(part => part.type === key)?.value ?? '';
+        const localDate = get('year') + '-' + get('month') + '-' + get('day');
+        const localTime = get('hour') + ':' + get('minute');
+        if (p.start_date === localDate && p.shift_hours.start < localTime) {
+          const next = expandScheduleDates(isoAddDays(localDate, 1), p.schedule_days);
+          if (next.length) {
+            p.start_date = next[0];
+            p.schedule_dates = next;
+            this.parsed.set({ ...p, shift_hours: { ...p.shift_hours } });
+          }
+        }
+      }
       // Map entity model to MCP CareRequest parameters
       const reqPayload: Record<string, any> = {
         location: p.location.includes('Petaling Jaya') ? 'Petaling Jaya' :

@@ -76,9 +76,10 @@ export function createServer(): McpServer {
     title: "Discover CareKaki search options", annotations,
     description: "Discover exact cities, service codes, available demo dates and suggested start times, durations and budgets. Location matches use case-insensitive exact equality, NOT abbreviations. All data is fictional demo data.",
     inputSchema: z.object({}),
-    outputSchema: z.object({ locations: z.array(z.string()), service_codes: z.array(z.string()), available_dates: z.array(z.string()), start_times: z.array(choiceSchema), duration_hours: z.array(z.number()), total_budgets: z.array(z.number()), currency: z.literal("MYR"), data_source: z.literal("fictional_demo"), booking_status: z.literal("not_booked") }),
+    outputSchema: z.object({ locations: z.array(z.string()), service_codes: z.array(z.string()), languages: z.array(z.string()), available_dates: z.array(z.string()), start_times: z.array(choiceSchema), duration_hours: z.array(z.number()), total_budgets: z.array(z.number()), currency: z.literal("MYR"), data_source: z.literal("fictional_demo"), booking_status: z.literal("not_booked") }),
   }, async () => result({
     locations: listLocations(providers), service_codes: listServiceCodes(providers),
+    languages: [...new Set(providers.flatMap(provider => provider.languages))].sort(),
     available_dates: [...new Set(providers.flatMap(p => p.availability.map(s => s.date)))].sort(),
     start_times: START_TIME_PRESETS, duration_hours: DURATION_PRESETS, total_budgets: BUDGET_PRESETS,
     currency: "MYR", data_source: "fictional_demo", booking_status: "not_booked",
@@ -184,11 +185,15 @@ export function createServer(): McpServer {
         return result({ ...baseline, mode: "deterministic_fallback" });
       }
       const byId = new Map(candidates.map(x => [x.provider_id, x]));
-      const ordered = ranked.map((ai, index) => ({
+      const orderedRanks = ranked.map((ai, index) => ({
         ...byId.get(ai.provider_id)!,
         ai: { rank: index + 1, suitability: ai.suitability,
           strengths: ai.strengths, tradeoffs: ai.tradeoffs, explanation: ai.explanation },
       }));
+      // Location-first is mandatory even when Gemini supplies the rank order.
+      const ordered = baseline.matches.length ? orderedRanks : orderedRanks.sort((a, b) =>
+        Number('checks' in b && b.checks.location) - Number('checks' in a && a.checks.location) ||
+        ('passed_checks' in b ? b.passed_checks : 0) - ('passed_checks' in a ? a.passed_checks : 0) || a.ai.rank - b.ai.rank);
       return result({ ...baseline, mode: "ai",
         matches: baseline.matches.length ? ordered.slice(0, limit) : [],
         ...(baseline.matches.length ? {} : { alternatives: ordered.slice(0, limit) }),

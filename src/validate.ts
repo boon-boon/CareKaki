@@ -118,10 +118,15 @@ export function validateRequest(body: unknown, now = new Date()): ValidationResu
     };
   }
   if (complete.date === current.date && complete.start_time < current.time) {
-    delete request.start_time;
+    const recurring = !!complete.schedule_days?.length;
+    if (recurring) delete request.date;
+    else delete request.start_time;
     return {
-      status: "needs_clarification", draft_request: request, missing_fields: ["start_time"],
-      question: { field: "start_time", text: "Start time has already passed in Malaysia. Choose a later time.", type: "time", options: [] },
+      status: "needs_clarification", draft_request: request,
+      missing_fields: [recurring ? "date" : "start_time"],
+      question: recurring
+        ? { field: "date", text: "Today's recurring visit would start in the past. Choose a future start date for this schedule.", type: "date", options: [] }
+        : { field: "start_time", text: "Start time has already passed in Malaysia. Choose a later time.", type: "time", options: [] },
     };
   }
   if (complete.schedule_days?.length) {

@@ -26,7 +26,26 @@ export class CaregiverRoster implements OnInit {
   readonly mcpCityFilter = signal<string>('all');
   readonly mcpServiceFilter = signal<string>('all');
   readonly mcpVerifiedOnly = signal<boolean>(false);
-  readonly mcpMaxRate = signal<number>(60);
+  readonly mcpMaxRate = signal<number>(Number.POSITIVE_INFINITY);
+  readonly catalogueCities = signal<string[]>([]);
+  readonly catalogueServices = signal<string[]>([]);
+  readonly catalogueMaxRate = signal(0);
+  readonly catalogueTotal = signal(0);
+  formatService(code: string): string { return code.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '); }
+  async loadCatalogueFilters() {
+    try {
+      const [options, catalogue] = await Promise.all([this.mcp.getSearchOptions(), this.mcp.listProviders({ limit: 100 })]);
+      this.catalogueCities.set(options.locations);
+      this.catalogueServices.set(options.service_codes);
+      this.catalogueTotal.set(catalogue.total_providers);
+      const max = Math.max(1, ...catalogue.providers.map(p => Number(p.hourly_rate) || 0));
+      this.catalogueMaxRate.set(max);
+      if (!Number.isFinite(this.mcpMaxRate())) {
+        this.mcpMaxRate.set(max);
+        await this.loadMcpProviders();
+      }
+    } catch (error) { console.warn('Catalogue filter discovery failed:', error); }
+  }
 
   // Staff Roster state
   readonly searchTerm = signal('');
@@ -38,6 +57,7 @@ export class CaregiverRoster implements OnInit {
   readonly allCaregivers: Caregiver[] = this.data.caregivers;
 
   ngOnInit() {
+    void this.loadCatalogueFilters();
     this.loadMcpProviders();
   }
 
@@ -55,7 +75,7 @@ export class CaregiverRoster implements OnInit {
     this.mcpLoading.set(true);
     try {
       const filters: Record<string, any> = {
-        max_hourly_rate: Number(this.mcpMaxRate()),
+        ...(Number.isFinite(this.mcpMaxRate()) ? { max_hourly_rate: Number(this.mcpMaxRate()) } : {}),
         verified_only: this.mcpVerifiedOnly(),
         limit: 50,
       };
@@ -186,7 +206,7 @@ export class CaregiverRoster implements OnInit {
     this.mcpCityFilter.set('all');
     this.mcpServiceFilter.set('all');
     this.mcpVerifiedOnly.set(false);
-    this.mcpMaxRate.set(60);
+    this.mcpMaxRate.set(this.catalogueMaxRate());
     this.loadMcpProviders();
   }
 }

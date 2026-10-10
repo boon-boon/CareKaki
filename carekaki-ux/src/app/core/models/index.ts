@@ -313,6 +313,7 @@ export interface McpSearchResult {
 export interface McpSearchOptions {
   locations: string[];
   service_codes: string[];
+  languages: string[];
   available_dates: string[];
   start_times: McpChoice[];
   duration_hours: number[];

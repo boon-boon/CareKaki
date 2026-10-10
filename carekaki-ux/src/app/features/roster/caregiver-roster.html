@@ -17,7 +17,7 @@
       <app-icon name="zap" [size]="16"/>
       <span>MCP Provider Catalogue (carekaki_providers_demo.csv)</span>
       <span class="tab-badge" [class.badge-green]="mcp.isOnline()">
-        20 Providers · {{ mcp.isOnline() ? 'Live MCP' : 'Local Mode' }}
+        {{ catalogueTotal() }} Providers · {{ mcp.isOnline() ? 'Live MCP' : 'Local Mode' }}
       </span>
     </button>
     <button
@@ -64,12 +64,10 @@
           <div class="filter-select-wrap">
             <app-icon name="map-pin" [size]="16"/>
             <select class="filter-select" [ngModel]="mcpCityFilter()" (ngModelChange)="mcpCityFilter.set($event); loadMcpProviders()">
-              <option value="all">All Cities (5)</option>
-              <option value="Petaling Jaya">Petaling Jaya</option>
-              <option value="Subang Jaya">Subang Jaya</option>
-              <option value="Kuala Lumpur">Kuala Lumpur</option>
-              <option value="Cheras">Cheras</option>
-              <option value="Shah Alam">Shah Alam</option>
+              <option value="all">All Cities ({{ catalogueCities().length }})</option>
+              @for (city of catalogueCities(); track city) {
+                <option [value]="city">{{ city }}</option>
+              }
             </select>
           </div>
 
@@ -78,10 +76,9 @@
             <app-icon name="shield" [size]="16"/>
             <select class="filter-select" [ngModel]="mcpServiceFilter()" (ngModelChange)="mcpServiceFilter.set($event); loadMcpProviders()">
               <option value="all">All Services</option>
-              <option value="elderly_care">Elderly Care</option>
-              <option value="mobility_assistance">Mobility Assistance</option>
-              <option value="companionship">Companionship</option>
-              <option value="dementia_care">Dementia Care</option>
+              @for (code of catalogueServices(); track code) {
+                <option [value]="code">{{ formatService(code) }}</option>
+              }
             </select>
           </div>
 
@@ -90,8 +87,8 @@
             <span class="rate-slider-label">Max Rate: <strong>RM {{ mcpMaxRate() }}</strong></span>
             <input
               type="range"
-              min="20"
-              max="60"
+              min="0"
+              [max]="catalogueMaxRate()"
               step="5"
               [ngModel]="mcpMaxRate()"
               (ngModelChange)="mcpMaxRate.set($event); loadMcpProviders()"
@@ -137,7 +134,7 @@
                 <th>Verified</th>
                 <th>Services</th>
                 <th>Languages</th>
-                <th>Demo Availability Window</th>
+                <th>Demo Availability Windows</th>
               </tr>
             </thead>
             <tbody>
@@ -185,15 +182,21 @@
                   </td>
                   <td>
                     <span style="font-size: 0.78rem; color: var(--text-secondary);">
-                      {{ p.languages ? p.languages.join(', ') : 'Malay' }}
+                      {{ p.languages?.length ? p.languages.join(', ') : 'Not specified' }}
                     </span>
                   </td>
                   <td>
-                    @if (p.availability && p.availability.length > 0) {
-                      <span class="avail-slot">
-                        <app-icon name="clock" [size]="13"/>
-                        {{ p.availability[0].date }} · {{ p.availability[0].start }}–{{ p.availability[0].end }}
-                      </span>
+                    @if (p.availability?.length) {
+                      <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start;">
+                        @for (slot of p.availability; track slot.date + slot.start + slot.end) {
+                          <span class="avail-slot">
+                            <app-icon name="clock" [size]="13"/>
+                            {{ slot.date }} · {{ slot.start }}–{{ slot.end }}
+                          </span>
+                        }
+                      </div>
+                    } @else {
+                      <span>No availability listed</span>
                     }
                   </td>
                 </tr>

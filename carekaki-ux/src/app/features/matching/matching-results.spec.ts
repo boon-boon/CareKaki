@@ -18,6 +18,7 @@ describe('MatchingResults recurring MCP handoff', () => {
       providers: [{
         provide: CareKakiMcpService,
         useValue: {
+          getSearchOptions: () => Promise.resolve({ locations: ['Petaling Jaya', 'Ampang'], service_codes: ['elderly_care', 'nursing_care'], languages: ['Malay', 'English'], available_dates: [], start_times: [], duration_hours: [], total_budgets: [] }),
           aiSearchProviders: (request: any) => {
             calls.push(request);
             return Promise.resolve({ status: 'no_matches', matches: [], alternatives: [] });
@@ -64,6 +65,7 @@ describe('MatchingResults recurring MCP handoff', () => {
       providers: [{
         provide: CareKakiMcpService,
         useValue: {
+          getSearchOptions: () => Promise.resolve({ locations: ['Petaling Jaya', 'Ampang'], service_codes: ['elderly_care', 'nursing_care'], languages: ['Malay', 'English'], available_dates: [], start_times: [], duration_hours: [], total_budgets: [] }),
           aiSearchProviders: () => Promise.resolve({ status: 'no_matches', matches: [], alternatives: [] }),
         },
       }],
@@ -91,6 +93,7 @@ describe('MatchingResults recurring MCP handoff', () => {
       providers: [{
         provide: CareKakiMcpService,
         useValue: {
+          getSearchOptions: () => Promise.resolve({ locations: ['Petaling Jaya', 'Ampang'], service_codes: ['elderly_care', 'nursing_care'], languages: ['Malay', 'English'], available_dates: [], start_times: [], duration_hours: [], total_budgets: [] }),
           aiSearchProviders: () => Promise.resolve({ status: 'no_matches', matches: [], alternatives: [] }),
         },
       }],

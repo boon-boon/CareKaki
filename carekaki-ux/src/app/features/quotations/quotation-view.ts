@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { IconComponent } from '../../shared/icon/icon';
 import { MockDataService } from '../../core/services/mock-data.service';
 import { CareBookingSessionService } from '../../core/services/care-booking-session.service';
+import { CareKakiMcpService } from '../../core/services/carekaki-mcp.service';
 import { Caregiver, Quotation, QuotationLineItem } from '../../core/models';
 
 /** Human-readable labels for the service codes used across the intake/MCP flow. */
@@ -39,6 +40,7 @@ const DEFAULT_SST_RATE = 0.08;
 export class QuotationView {
   private readonly data = inject(MockDataService);
   private readonly bookingSession = inject(CareBookingSessionService);
+  private readonly mcp = inject(CareKakiMcpService);
 
   /**
    * Live document derived from the cross-route booking session.
@@ -48,7 +50,32 @@ export class QuotationView {
    * Intake → Matching). This fallback is intentional and keeps the page from
    * rendering blank in demo deep-link scenarios.
    */
-  readonly quotation: Quotation = this.buildQuotation();
+  quotation: Quotation = this.buildQuotation();
+  readonly quotationLoading = signal(!!this.bookingSession.current()?.selectedProviderId);
+  readonly quotationError = signal<string | null>(null);
+
+  constructor() {
+    if (this.quotationLoading()) void this.loadLiveQuotation();
+  }
+
+  private async loadLiveQuotation(): Promise<void> {
+    const id = this.bookingSession.current()?.selectedProviderId;
+    if (!id) { this.quotationLoading.set(false); return; }
+    try {
+      const response = await this.mcp.getProvider(id);
+      const provider = response.provider;
+      if (response.status !== 'found' || !provider || provider.provider_id !== id ||
+          !Number.isFinite(provider.hourly_rate) || provider.hourly_rate <= 0) {
+        throw new Error('Selected caregiver could not be resolved to a valid MCP rate.');
+      }
+      this.quotation = this.buildQuotation({ id, name: provider.name, hourlyRate: provider.hourly_rate });
+    } catch (error) {
+      this.quotationError.set('Unable to load the selected caregiver’s live hourly rate. Please reconnect to MCP and reopen this quotation.');
+      console.warn('Live quotation pricing unavailable:', error);
+    } finally {
+      this.quotationLoading.set(false);
+    }
+  }
 
   readonly copied = signal(false);
 
@@ -116,7 +143,7 @@ Total Payable: ${this.formatMYR(q.total)}`;
    *  - request.date / schedule   → start_date / shift_days / num_days
    *  - selectedProviderId        → caregiver_name/id/certifications + billable rate
    */
-  private buildQuotation(): Quotation {
+  private buildQuotation(mcpProvider?: { id: string; name: string; hourlyRate: number }): Quotation {
     const session = this.bookingSession.current();
 
     // ------------------------------------------------------------------
@@ -146,21 +173,21 @@ Total Payable: ${this.formatMYR(q.total)}`;
 
     // Resolve the confirmed provider against the roster (single source of truth).
     const provider = this.resolveProvider(session.selectedProviderId);
-    const caregiverName = provider?.name ?? 'Caregiver to be assigned';
-    const caregiverId = provider?.caregiver_id ?? (session.selectedProviderId ?? 'TBD');
+    const caregiverName = mcpProvider?.name ?? provider?.name ?? 'Caregiver to be assigned';
+    const caregiverId = mcpProvider?.id ?? provider?.caregiver_id ?? (session.selectedProviderId ?? 'TBD');
     const caregiverCertifications = provider
       ? provider.certifications.split('|').map(c => c.trim()).join(', ')
       : '';
 
     // Billable rate = higher of pricing-matrix base rate or caregiver hourly rate.
     const baseRate = this.baseRateFor(primaryService);
-    const caregiverRate = provider?.hourly_rate_myr ?? 0;
-    const rate = this.round2(Math.max(baseRate, caregiverRate, 0));
+    const caregiverRate = mcpProvider?.hourlyRate ?? provider?.hourly_rate_myr ?? 0;
+    const rate = this.round2(mcpProvider ? caregiverRate : Math.max(baseRate, caregiverRate, 0));
 
     const lineItems: QuotationLineItem[] = services.map(code => {
       const label = this.serviceLabel(code);
       const codeBase = this.baseRateFor(code);
-      const lineRate = this.round2(Math.max(codeBase, caregiverRate, 0));
+      const lineRate = this.round2(mcpProvider ? caregiverRate : Math.max(codeBase, caregiverRate, 0));
       const subtotal = this.round2(lineRate * hours * days);
       return {
         description: `${label} — ${hours}h/day, ${shiftDays}`,

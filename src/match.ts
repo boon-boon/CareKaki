@@ -48,12 +48,12 @@ export function filterAndRank(request: CareRequest, providers: Provider[], limit
       };
     });
   ranked.sort((a, b) => b.match_score - a.match_score || a.estimated_cost - b.estimated_cost || a.provider_id.localeCompare(b.provider_id));
-  // Strict criteria stay intact: suggestions are verified but NOT eligible/bookable.
+  // Review-only alternatives can fail verification; location is the first
+  // priority, and failed checks remain explicit and non-bookable.
   const alternatives: ProviderAlternative[] = [];
   if (!ranked.length) {
     for (const provider of providers) {
       const checks = matchingChecks(request, provider);
-      if (!checks.verified) continue;
       const estimated_cost = provider.hourly_rate * request.duration_hours * requestedDates(request).length;
       const unavailable_dates = uncoveredDates(request, provider);
       const preferred_language_match = !request.preferred_language ||
@@ -64,7 +64,7 @@ export function filterAndRank(request: CareRequest, providers: Provider[], limit
       alternatives.push({
         provider_id: provider.provider_id, name: provider.name, location: provider.location,
         hourly_rate: provider.hourly_rate, estimated_cost, currency: "MYR",
-        rating: provider.rating, verified: true, languages: provider.languages,
+        rating: provider.rating, verified: provider.verified, languages: provider.languages,
         preferred_language_match, available: checks.availability,
         match_score: Number(qualityScore.toFixed(2)), checks,
         passed_checks: Object.values(checks).filter(Boolean).length,
@@ -74,7 +74,8 @@ export function filterAndRank(request: CareRequest, providers: Provider[], limit
         requested_dates: requestedDates(request).length,
       });
     }
-    alternatives.sort((a, b) => b.passed_checks - a.passed_checks ||
+    alternatives.sort((a, b) => Number(b.checks.location) - Number(a.checks.location) ||
+      b.passed_checks - a.passed_checks ||
       (b.covered_dates ?? 0) - (a.covered_dates ?? 0) ||
       b.match_score - a.match_score || a.estimated_cost - b.estimated_cost ||
       a.provider_id.localeCompare(b.provider_id));

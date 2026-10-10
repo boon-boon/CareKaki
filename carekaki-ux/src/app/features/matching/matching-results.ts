@@ -39,11 +39,11 @@ export class MatchingResults implements OnInit {
   readonly diagnosticsLoading = signal(false);
 
   // Search parameters for live MCP query
-  readonly searchCity = signal('Petaling Jaya');
-  readonly searchDate = signal('2026-10-17');
+  readonly searchCity = signal('');
+  readonly searchDate = signal('');
   readonly searchTime = signal('09:00');
   readonly searchDuration = signal(2);
-  readonly searchServices = signal<string[]>(['elderly_care']);
+  readonly searchServices = signal<string[]>([]);
   readonly searchBudget = signal(200);
   readonly searchLanguage = signal('');
 
@@ -59,12 +59,51 @@ export class MatchingResults implements OnInit {
   /** Scoring weights per spec */
   readonly weights = { proximity: 0.40, skill: 0.35, availability: 0.25 };
 
-  private static readonly CITY_OPTIONS = ['Petaling Jaya', 'Subang Jaya', 'Kuala Lumpur', 'Shah Alam', 'Cheras'];
+  readonly catalogueCities = signal<string[]>([]);
+  readonly catalogueServices = signal<string[]>([]);
+  readonly catalogueLanguages = signal<string[]>([]);
+  readonly serviceOptions = computed(() => this.catalogueServices().map(code => ({ code, label: this.formatService(code) })));
+
+  formatService(code: string): string { return code.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '); }
+
+  async loadCatalogueOptions() {
+    try {
+      const options = await this.mcp.getSearchOptions();
+      this.catalogueCities.set(options.locations);
+      this.catalogueServices.set(options.service_codes);
+      this.catalogueLanguages.set(options.languages ?? []);
+
+      // Preserve any request explicitly supplied by the intake or saved booking.
+      // Only choose defaults when opening the matching page without an intake.
+      const hasIntake = !!this.bookingSession.current() || !!this.data.activeIntake();
+      if (!hasIntake) {
+        if (!this.searchCity() || !options.locations.includes(this.searchCity())) {
+          this.searchCity.set(options.locations[0] ?? '');
+        }
+        if (!this.searchServices().length) this.searchServices.set(options.service_codes.slice(0, 1));
+        if (!this.searchDate()) {
+          const futureDate = options.available_dates.find(date => date >= this.todayMalaysiaDate);
+          this.searchDate.set(futureDate ?? '');
+        }
+        if (this.searchCity() && this.searchDate() && this.searchServices().length) {
+          await this.runMcpSearch(true);
+        }
+      }
+    } catch (error) {
+      console.warn('Could not load live matching filters:', error);
+      if (!this.bookingSession.current() && !this.data.activeIntake()) {
+        this.mcpError.set('Could not load the available cities and services from MCP. Please check the backend.');
+      }
+    }
+  }
   private searchSequence = 0;
 
   ngOnInit() {
     this.seedFromIntake();
-    void this.runMcpSearch(true);
+    if (this.bookingSession.current() || this.data.activeIntake()) {
+      void this.runMcpSearch(true);
+    }
+    void this.loadCatalogueOptions();
   }
 
   /** Apply the intake entities + recurring schedule chosen on the Intake page. */
@@ -90,8 +129,7 @@ export class MatchingResults implements OnInit {
     const ai = this.data.activeIntake();
     if (!ai) return;
     const zone = ai.location_zone || ai.location || '';
-    const city = MatchingResults.CITY_OPTIONS.find(c => zone.includes(c)) || MatchingResults.CITY_OPTIONS.find(c => (ai.location || '').includes(c));
-    if (city) this.searchCity.set(city);
+    if (zone) this.searchCity.set(zone);
     if (ai.start_date) this.searchDate.set(ai.start_date);
     if (ai.shift_hours?.start) this.searchTime.set(ai.shift_hours.start);
     if (ai.shift_hours?.duration_hours) this.searchDuration.set(ai.shift_hours.duration_hours);
@@ -100,13 +138,6 @@ export class MatchingResults implements OnInit {
     this.scheduleDates.set(this.data.activeScheduleDates());
     if (this.scheduleDates().length > 1) this.scheduleMode.set('all');
   }
-
-  readonly serviceOptions = [
-    { code: 'elderly_care', label: 'Elderly Care' },
-    { code: 'mobility_assistance', label: 'Mobility Assistance' },
-    { code: 'companionship', label: 'Companionship' },
-    { code: 'dementia_care', label: 'Dementia Care' },
-  ];
 
   readonly todayMalaysiaDate = (() => {
     const parts = new Intl.DateTimeFormat('en-GB', {

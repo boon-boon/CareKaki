@@ -64,17 +64,15 @@
           <div class="form-group">
             <label class="form-label">City Location</label>
             <select class="select" [ngModel]="searchCity()" (ngModelChange)="searchCity.set($event); runMcpSearch()">
-              <option value="Petaling Jaya">Petaling Jaya</option>
-              <option value="Subang Jaya">Subang Jaya</option>
-              <option value="Kuala Lumpur">Kuala Lumpur</option>
-              <option value="Shah Alam">Shah Alam</option>
-              <option value="Cheras">Cheras</option>
+              @for (city of catalogueCities(); track city) {
+                <option [value]="city">{{ city }}</option>
+              }
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">Care Service</label>
             <div class="care-service-options">
-              @for (option of serviceOptions; track option.code) {
+              @for (option of serviceOptions(); track option.code) {
                 <label
                   class="care-service-option"
                   [class.checked]="searchServices().includes(option.code)"
@@ -132,10 +130,9 @@
             <label class="form-label">Preferred Language (Optional)</label>
             <select class="select" [ngModel]="searchLanguage()" (ngModelChange)="searchLanguage.set($event); runMcpSearch()">
               <option value="">No preference</option>
-              <option value="Malay">Malay</option>
-              <option value="English">English</option>
-              <option value="Mandarin">Mandarin</option>
-              <option value="Tamil">Tamil</option>
+              @for (language of catalogueLanguages(); track language) {
+                <option [value]="language">{{ language }}</option>
+              }
             </select>
           </div>
         </div>
@@ -288,7 +285,7 @@
     } @else if (alternatives().length > 0 && !mcpError()) {
       <section class="card" style="padding: 20px; margin-bottom: 16px;">
         <h3>No providers meet all 5 criteria{{ scheduleMode() === 'all' ? ' for the full schedule' : '' }}</h3>
-        <p>Here are the top {{ alternatives().length }} closest verified providers, ranked by passed
+        <p>Here are the top {{ alternatives().length }} location-first providers (including explicitly labeled unverified candidates), ranked within each location by passed
           requirements and, where available, Gemini suitability reasoning. These suggestions are <strong>not eligible for booking yet</strong>.
           Choose one for follow-up review or adjust your search criteria.</p>
       </section>
@@ -302,7 +299,7 @@
             </div>
             <div class="candidate-info">
               <strong class="cg-name">{{ c.name }}</strong>
-              <div class="cg-id">{{ c.provider_id }} · {{ c.location }} · Verified</div>
+              <div class="cg-id">{{ c.provider_id }} · {{ c.location }} · {{ c.verified ? 'Verified' : 'UNVERIFIED — review only' }}</div>
               <p><strong>{{ c.passed_checks }}/5 checks passed</strong>
                 @if (c.ai) { · AI suitability: {{ c.ai.suitability }} }
                 @else { · Deterministic score: {{ c.match_score }}/100 }
