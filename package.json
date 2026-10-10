@@ -14,6 +14,7 @@
     "carekaki_providers_demo.csv"
   ],
   "scripts": {
+    "postinstall": "npm --prefix carekaki-ux install",
     "prestart": "npm run build:all",
     "start": "node scripts/serve-prod.mjs",
     "stdio": "node --env-file-if-exists=.env dist/index.js",
