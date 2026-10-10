@@ -18,7 +18,7 @@ describe('MatchingResults recurring MCP handoff', () => {
       providers: [{
         provide: CareKakiMcpService,
         useValue: {
-          searchProviders: (request: any) => {
+          aiSearchProviders: (request: any) => {
             calls.push(request);
             return Promise.resolve({ status: 'no_matches', matches: [], alternatives: [] });
           },
@@ -64,7 +64,7 @@ describe('MatchingResults recurring MCP handoff', () => {
       providers: [{
         provide: CareKakiMcpService,
         useValue: {
-          searchProviders: () => Promise.resolve({ status: 'no_matches', matches: [], alternatives: [] }),
+          aiSearchProviders: () => Promise.resolve({ status: 'no_matches', matches: [], alternatives: [] }),
         },
       }],
     });
@@ -91,7 +91,7 @@ describe('MatchingResults recurring MCP handoff', () => {
       providers: [{
         provide: CareKakiMcpService,
         useValue: {
-          searchProviders: () => Promise.resolve({ status: 'no_matches', matches: [], alternatives: [] }),
+          aiSearchProviders: () => Promise.resolve({ status: 'no_matches', matches: [], alternatives: [] }),
         },
       }],
     });

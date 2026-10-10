@@ -95,7 +95,7 @@ export class CareKakiMcpService {
         'MCP-Protocol-Version': '2025-03-26',
       },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(25000),
     });
 
     if (!res.ok) {
@@ -165,6 +165,30 @@ export class CareKakiMcpService {
       });
       throw err;
     }
+  }
+
+  async interpretCareRequest(user_message: string, current_draft: Record<string, any> = {}) {
+    return this.callTool<{
+      status: string;
+      mode: string;
+      patch?: Record<string, any>;
+      budget_scope?: string;
+      ambiguous_fields?: string[];
+      missing_fields?: string[];
+      clarification_question?: string;
+    }>('carekaki_ai_interpret_request', { user_message, current_draft });
+  }
+
+  async aiSearchProviders(request: Record<string, any>, limit = 5): Promise<McpSearchResult> {
+    return this.callTool<McpSearchResult>('carekaki_ai_recommend_providers', {
+      ...request, confirmed: true, limit,
+    });
+  }
+
+  async explainAIRecommendation(request: Record<string, any>, provider_id: string, compare_with_id?: string) {
+    return this.callTool('carekaki_ai_explain_recommendation', {
+      ...request, confirmed: true, provider_id, compare_with_id,
+    });
   }
 
   // ============================================================

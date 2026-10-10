@@ -465,6 +465,17 @@ export class IntakeForm {
   private readonly bookingSession = inject(CareBookingSessionService);
 
   readonly rawInput = signal('');
+  readonly aiPreferredLanguage = signal('');
+  readonly budgetConfirmation = signal<string | null>(null);
+  private applyPerVisitBudget(p: IntakeEntities, amount: number): string | null {
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+    const count = p.schedule_dates?.length || 1;
+    const total = Math.round(amount * count * 100) / 100;
+    p.max_budget = total;
+    const summary = `RM ${amount} per visit × ${count} visit(s) = RM ${total} total budget`;
+    this.budgetConfirmation.set(summary);
+    return summary;
+  }
   readonly parsing = signal(false);
   readonly parsed = signal<IntakeEntities | null>(null);
   readonly intakeId = signal('');
@@ -501,6 +512,7 @@ export class IntakeForm {
       this.intakeId.set(pending.intakeId);
       this.missingSlots.set([]);
       this.mcpConfirmed.set(true);
+      this.aiPreferredLanguage.set(pending.request.preferred_language);
       // The MCP server remains the authority for validation when returning.
       void this.validateWithMcp();
     }
@@ -605,6 +617,8 @@ export class IntakeForm {
   private resetState() {
     this.parsed.set(null);
     this.missingSlots.set([]);
+    this.aiPreferredLanguage.set('');
+    this.budgetConfirmation.set(null);
     this.intakeId.set('');
     this.mcpValidation.set(null);
     this.mcpConfirmed.set(false);
@@ -619,8 +633,8 @@ export class IntakeForm {
     this.dismissedField = '';
   }
 
-  /** Entity extraction from natural language */
-  parseIntake() {
+  /** Gemini-first intake with existing local parser as a labeled fallback. */
+  async parseIntake() {
     const text = this.rawInput().trim();
     if (!text) return;
 
@@ -633,17 +647,68 @@ export class IntakeForm {
     this.dismissedField = '';
     this.showClarifyPanel.set(false);
 
-    // Realistic agent latency
-    setTimeout(async () => {
-      const entities = this.extractEntities(text);
-      this.parsed.set(entities.entities);
-      this.missingSlots.set(entities.missing);
+    try {
+      const fallback = this.extractEntities(text);
+      const p = fallback.entities;
+      let missing = fallback.missing;
+      const inferred = await this.mcp.interpretCareRequest(text);
+      if (inferred.status === 'extracted' && inferred.patch) {
+        const patch = inferred.patch as { location?: string; required_services?: string[]; service_type?: string; patient_conditions?: string; preferred_language?: string; date?: string; start_time?: string; duration_hours?: number; max_budget?: number; budget_per_visit?: number; schedule_days?: string[] };
+        if (patch.location) {
+          p.location = patch.location;
+          p.location_zone = patch.location;
+        }
+        if (patch.required_services?.length) p.required_services = [...patch.required_services];
+        if (patch.service_type) p.service_type = patch.service_type;
+        if (patch.patient_conditions) p.patient_conditions = patch.patient_conditions;
+        if (patch.preferred_language) {
+          // Optional ranking preference is kept in the draft's validated request.
+          this.aiPreferredLanguage.set(patch.preferred_language);
+        }
+        if (patch.date) p.start_date = patch.date;
+        if (patch.start_time) p.shift_hours.start = patch.start_time;
+        if (typeof patch.duration_hours === 'number') p.shift_hours.duration_hours = patch.duration_hours;
+        if (typeof patch.max_budget === 'number') p.max_budget = patch.max_budget;
+        if (inferred.budget_scope === 'per_visit') p.max_budget = undefined;
+        if (patch.schedule_days?.length) {
+          p.schedule_days = [...patch.schedule_days];
+          p.shift_hours.days = [...patch.schedule_days];
+        }
+        // Schedule expansion belongs to deterministic code, not the LLM.
+        if (p.schedule_days?.length && p.start_date && /^\d{4}-\d{2}-\d{2}$/.test(p.start_date)) {
+          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          const anchor = new Date(p.start_date + 'T00:00:00Z');
+          const dates: string[] = [];
+          if (!Number.isNaN(anchor.getTime())) {
+            for (let i = 0; i < 90 && dates.length < 12; i++) {
+              const d = new Date(anchor.getTime() + i * 86400000);
+              if (p.schedule_days.includes(days[d.getUTCDay()])) dates.push(d.toISOString().slice(0, 10));
+            }
+          }
+          p.schedule_dates = dates;
+        }
+        if (inferred.budget_scope === 'per_visit' && typeof patch.budget_per_visit === 'number') this.applyPerVisitBudget(p, patch.budget_per_visit);
+        p.shift_hours.end = shiftEnd(p.shift_hours.start, p.shift_hours.duration_hours);
+        missing = this.requiredFields.filter(field => !this.isFieldSatisfied(field, p));
+        missing = [...new Set([...missing, ...(inferred.ambiguous_fields ?? [])])];
+      }
+      // Do not overwrite a newer user request with an older inference response.
+      if (text !== this.rawInput().trim()) return;
+      this.parsed.set(p);
+      this.missingSlots.set(missing);
       this.intakeId.set('INT-' + this.timestampId());
-      this.parsing.set(false);
-
-      // Auto-validate with MCP if server is online
       await this.validateWithMcp();
-    }, 600);
+    } catch (error) {
+      console.warn('AI intake unavailable, using deterministic extraction:', error);
+      if (text !== this.rawInput().trim()) return;
+      const fallback = this.extractEntities(text);
+      this.parsed.set(fallback.entities);
+      this.missingSlots.set(fallback.missing);
+      this.intakeId.set('INT-' + this.timestampId());
+      await this.validateWithMcp();
+    } finally {
+      if (text === this.rawInput().trim()) this.parsing.set(false);
+    }
   }
 
   /**
@@ -667,7 +732,7 @@ export class IntakeForm {
         duration_hours: p.shift_hours.duration_hours || undefined,
         required_services: p.required_services,
         max_budget: p.max_budget,
-        preferred_language: '',
+        preferred_language: this.aiPreferredLanguage(),
         schedule_days: p.schedule_days ?? [],
         ...(p.schedule_dates?.length ? { schedule_dates: p.schedule_dates } : {}),
         confirmed: this.mcpConfirmed(),
@@ -961,6 +1026,59 @@ export class IntakeForm {
     if (serviceType) {
       p.service_type = serviceType;
       understood.push(`Service type → ${SERVICE_TYPE_LABEL[serviceType] ?? serviceType}`);
+    }
+
+    // Gemini reinterprets clarification answers as patches to the existing draft.
+    // If the model is disabled/unavailable, keep the original deterministic parser.
+    try {
+      const inferred = await this.mcp.interpretCareRequest(raw, {
+        location: current.location_zone,
+        required_services: current.required_services,
+        date: current.start_date,
+        start_time: current.shift_hours.start,
+        duration_hours: current.shift_hours.duration_hours,
+        max_budget: current.max_budget,
+        schedule_days: current.schedule_days,
+      });
+      if (inferred.status === 'extracted' && inferred.patch) {
+        const patch = inferred.patch as { location?: string; required_services?: string[];
+          service_type?: string; patient_conditions?: string; preferred_language?: string;
+          date?: string; start_time?: string; duration_hours?: number;
+          max_budget?: number; budget_per_visit?: number; schedule_days?: string[] };
+        if (patch.location) { p.location = patch.location; p.location_zone = patch.location; understood.push('Location updated by Gemini'); }
+        if (patch.required_services?.length) { p.required_services = [...patch.required_services]; understood.push('Services updated by Gemini'); }
+        if (patch.service_type) p.service_type = patch.service_type;
+        if (patch.patient_conditions) p.patient_conditions = patch.patient_conditions;
+        if (patch.preferred_language) this.aiPreferredLanguage.set(patch.preferred_language);
+        if (patch.date) { p.start_date = patch.date; understood.push('Date updated by Gemini'); }
+        if (patch.start_time) { p.shift_hours.start = patch.start_time; understood.push('Start time updated by Gemini'); }
+        if (typeof patch.duration_hours === 'number') { p.shift_hours.duration_hours = patch.duration_hours; understood.push('Duration updated by Gemini'); }
+        if (typeof patch.max_budget === 'number') { p.max_budget = patch.max_budget; understood.push('Budget updated by Gemini'); }
+        if (inferred.budget_scope === 'per_visit') p.max_budget = undefined;
+        if (patch.schedule_days?.length) {
+          p.schedule_days = [...patch.schedule_days];
+          p.shift_hours.days = [...patch.schedule_days];
+          understood.push('Recurring days updated by Gemini');
+        }
+        if (p.schedule_days?.length && p.start_date && /^\d{4}-\d{2}-\d{2}$/.test(p.start_date)) {
+          const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          const anchor = new Date(p.start_date + 'T00:00:00Z');
+          const schedule: string[] = [];
+          if (!Number.isNaN(anchor.getTime())) {
+            for (let i = 0; i < 90 && schedule.length < 12; i++) {
+              const d = new Date(anchor.getTime() + i * 86400000);
+              if (p.schedule_days.includes(weekdayNames[d.getUTCDay()])) schedule.push(d.toISOString().slice(0, 10));
+            }
+          }
+          p.schedule_dates = schedule;
+        }
+        if (inferred.budget_scope === 'per_visit' && typeof patch.budget_per_visit === 'number') {
+          const summary = this.applyPerVisitBudget(p, patch.budget_per_visit);
+          if (summary) understood.push(summary);
+        }
+      }
+    } catch (error) {
+      console.warn('Gemini clarification fallback:', error);
     }
 
     // --- The asked-about field MUST be satisfied ---

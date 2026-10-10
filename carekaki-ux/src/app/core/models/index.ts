@@ -269,6 +269,7 @@ export interface McpValidationResult {
 }
 
 export interface McpProviderMatch {
+  ai?: { rank: number; suitability: 'excellent' | 'good' | 'fair' | 'limited'; strengths: string[]; tradeoffs: string[]; explanation: string };
   provider_id: string;
   name: string;
   location: string;
@@ -295,6 +296,7 @@ export interface McpProviderAlternative extends Omit<McpProviderMatch, 'availabl
 }
 
 export interface McpSearchResult {
+  mode?: 'ai' | 'deterministic_fallback';
   status: 'matches_found' | 'no_matches' | 'needs_clarification' | 'needs_confirmation' | 'invalid_request';
   request?: any;
   total_matches?: number;

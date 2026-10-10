@@ -29,6 +29,7 @@ export class MatchingResults implements OnInit {
 
   // MCP live search state
   readonly mcpMatches = signal<McpProviderMatch[]>([]);
+  readonly inferenceMode = signal<'ai' | 'deterministic_fallback'>('deterministic_fallback');
   readonly alternatives = signal<McpProviderAlternative[]>([]);
   readonly reviewedAlternativeId = signal<string>('');
   readonly mcpLoading = signal(false);
@@ -222,13 +223,14 @@ export class MatchingResults implements OnInit {
     this.mcpLoading.set(true);
     this.mcpError.set(null);
     try {
-      const result = await this.mcp.searchProviders({
+      const result = await this.mcp.aiSearchProviders({
         ...request,
         confirmed: true,
       }, 5);
 
       // Ignore responses for an older search if the user changed the criteria.
       if (sequence !== this.searchSequence) return;
+      this.inferenceMode.set(result.mode === 'ai' ? 'ai' : 'deterministic_fallback');
       if (result.matches && result.matches.length > 0) {
         this.mcpMatches.set(result.matches);
         const saved = this.bookingSession.current();

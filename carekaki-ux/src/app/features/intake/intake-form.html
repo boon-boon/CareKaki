@@ -487,6 +487,9 @@
                     </div>
                   </div>
 
+                  @if (budgetConfirmation(); as summary) {
+                    <p class="confirm-desc" style="margin-top: 10px;"><strong>Per-visit budget converted:</strong> {{ summary }}. Please verify this total before continuing.</p>
+                  }
                   <div class="confirm-summary-table">
                     <div class="summary-col"><span>City:</span><strong>{{ val.draft_request?.location }}</strong></div>
                     <div class="summary-col"><span>Date:</span><strong>{{ val.draft_request?.date }}</strong></div>

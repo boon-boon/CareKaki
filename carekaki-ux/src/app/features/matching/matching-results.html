@@ -146,7 +146,7 @@
     <div class="formula-callout">
       <app-icon name="zap" [size]="16"/>
       <span class="formula-text">
-        CareKaki MCP Rank Formula: <strong>Rating (50%)</strong> + <strong>Affordability (35%)</strong> + <strong>Language Match (15%)</strong>. All 5 criteria (location, all services, verified, availability, budget) must be satisfied.
+        {{ inferenceMode() === 'ai' ? 'Gemini suitability ranking based on verified provider data. The previous numeric formula is not an AI score.' : 'Deterministic fallback ranking: Rating 50%, Affordability 35%, Language 15%.' }} All five eligibility criteria (location, services, verification, availability and budget) remain mandatory.
       </span>
     </div>
 
@@ -218,6 +218,15 @@
                 </div>
               </div>
 
+              @if (c.ai) {
+                <div style="margin: 8px 0; padding: 10px; border: 1px solid var(--teal-200); border-radius: 8px;">
+                  <strong>AI suitability: {{ c.ai.suitability }}</strong>
+                  <p>{{ c.ai.explanation }}</p>
+                  @if (c.ai.tradeoffs.length) {
+                    <p><strong>Trade-offs:</strong> {{ c.ai.tradeoffs.join('; ') }}</p>
+                  }
+                </div>
+              }
               <!-- Languages -->
               <div class="cert-list">
                 @for (lang of c.languages; track lang) {
@@ -246,7 +255,8 @@
               </div>
             </div>
 
-            <!-- Score breakdown -->
+            <!-- Legacy score only when using deterministic fallback -->
+            @if (!c.ai) {
             <div class="score-col">
               <div class="total-score" [class]="scoreClass(c.match_score)">
                 <span class="score-num">{{ c.match_score }}</span>
@@ -271,6 +281,7 @@
                 }
               </div>
             </div>
+            }
           </div>
         }
       </div>
@@ -278,7 +289,7 @@
       <section class="card" style="padding: 20px; margin-bottom: 16px;">
         <h3>No providers meet all 5 criteria{{ scheduleMode() === 'all' ? ' for the full schedule' : '' }}</h3>
         <p>Here are the top {{ alternatives().length }} closest verified providers, ranked by passed
-          requirements and then matching score. These suggestions are <strong>not eligible for booking yet</strong>.
+          requirements and, where available, Gemini suitability reasoning. These suggestions are <strong>not eligible for booking yet</strong>.
           Choose one for follow-up review or adjust your search criteria.</p>
       </section>
       <div class="candidate-list">
@@ -292,7 +303,11 @@
             <div class="candidate-info">
               <strong class="cg-name">{{ c.name }}</strong>
               <div class="cg-id">{{ c.provider_id }} · {{ c.location }} · Verified</div>
-              <p><strong>{{ c.passed_checks }}/5 checks passed</strong> · Ranking score: {{ c.match_score }}/100</p>
+              <p><strong>{{ c.passed_checks }}/5 checks passed</strong>
+                @if (c.ai) { · AI suitability: {{ c.ai.suitability }} }
+                @else { · Deterministic score: {{ c.match_score }}/100 }
+              </p>
+              @if (c.ai) { <p><strong>AI explanation:</strong> {{ c.ai.explanation }}</p> }
               <p><strong>Availability: {{ c.covered_dates ?? 0 }} of {{ c.requested_dates ?? 1 }} visits covered.</strong>
                 @if (c.unavailable_dates?.length) {
                   Missing: {{ c.unavailable_dates!.slice(0, 4).join(', ') }}

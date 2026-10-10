@@ -115,7 +115,8 @@ function domainSmoke() {
 async function toolChecks(rpc: (method: string, params?: Json) => Promise<Json>) {
   const listed = await rpc("tools/list");
   const names: string[] = listed.tools.map((t: Json) => t.name);
-  assert.equal(names.length, 6);
+  assert.equal(names.length, 9);
+  for (const name of ["carekaki_ai_interpret_request", "carekaki_ai_recommend_providers", "carekaki_ai_explain_recommendation"]) assert.ok(names.includes(name));
   for (const name of ["carekaki_get_search_options", "carekaki_validate_request", "carekaki_search_providers", "carekaki_list_providers", "carekaki_get_provider", "carekaki_explain_matching"]) assert.ok(names.includes(name));
   async function tool(name: string, args: Json = {}) {
     const output = await rpc("tools/call", { name, arguments: args });
@@ -123,6 +124,13 @@ async function toolChecks(rpc: (method: string, params?: Json) => Promise<Json>)
     return output.structuredContent ?? JSON.parse(output.content[0].text);
   }
   assert.equal((await tool("carekaki_get_search_options")).locations.includes("Cheras"), true);
+  const aiOff = await tool("carekaki_ai_interpret_request", { user_message: "Weekday elderly care in PJ" });
+  assert.equal(aiOff.status, "unavailable");
+  const aiFallback = await tool("carekaki_ai_recommend_providers", sample);
+  assert.equal(aiFallback.mode, "deterministic_fallback");
+  assert.equal(aiFallback.matches[0].provider_id, "CK002");
+  assert.equal((await tool("carekaki_ai_recommend_providers", { ...sample, confirmed: false })).status, "needs_confirmation");
+  assert.equal((await tool("carekaki_ai_explain_recommendation", { ...sample, provider_id: "CK999" })).status, "not_found");
   assert.equal((await tool("carekaki_validate_request")).question.field, "location");
   assert.equal((await tool("carekaki_validate_request", { location: null })).question.field, "location");
   assert.equal((await tool("carekaki_search_providers", { ...sample, confirmed: false })).status, "needs_confirmation");
@@ -179,7 +187,7 @@ async function stdioSmoke() {
     await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "carekaki-smoke", version: "1.0.0" } });
     child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
     await toolChecks(rpc);
-    record("stdio initialize, tools/list and all six tools over JSON-RPC");
+    record("stdio initialize, tools/list and all nine tools over JSON-RPC");
   } finally {
     for (const waiting of pending.values()) clearTimeout(waiting.timer);
     child.stdin.end();
@@ -210,7 +218,7 @@ async function httpSmoke() {
     };
     await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "carekaki-http-smoke", version: "1.0.0" } });
     await toolChecks(rpc);
-    record("Streamable HTTP initialize, tools/list and all six tools");
+    record("Streamable HTTP initialize, tools/list and all nine tools");
     const denied = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", Origin: "https://untrusted.example" }, body: "{}" });
     assert.equal(denied.status, 403);
     record("HTTP rejects untrusted browser Origin");

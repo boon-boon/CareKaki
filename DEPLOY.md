@@ -6,7 +6,7 @@ health probe at `/health`, and serves the built Angular SPA from the same origin
 so the browser talks to the API without any absolute URL or second port.
 
 ```
-Browser ──▶ :$PORT ──┬─▶ /mcp     MCP Streamable HTTP (6 tools)
+Browser ──▶ :$PORT ──┬─▶ /mcp     MCP Streamable HTTP (9 tools, 3 optional Gemini AI)
                       ├─▶ /health  JSON health probe
                       └─▶ /        Angular SPA (static + SPA fallback)
 ```

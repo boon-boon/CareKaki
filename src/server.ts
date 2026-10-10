@@ -3,6 +3,8 @@ import * as z from "zod/v4";
 import { loadProviders, listLocations, listServiceCodes } from "./providers.js";
 import { validateRequest, BUDGET_PRESETS, DURATION_PRESETS, START_TIME_PRESETS } from "./validate.js";
 import { explainMatching, filterAndRank } from "./match.js";
+import { aiMode, interpretCareMessage, rankCareCandidates } from "./ai/gemini.js";
+import { malaysiaNow } from "./validate.js";
 
 const annotations = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 const requestShape = {
@@ -136,6 +138,86 @@ export function createServer(): McpServer {
     const validation = validateRequest(args);
     if (validation.status !== "valid" || !validation.request) return result(validation);
     return result({ status: "diagnostics", request: validation.request, provider_count: providers.length, diagnostics: explainMatching(validation.request, providers), data_source: "fictional_demo", booking_status: "not_booked" });
+  });
+
+  server.registerTool("carekaki_ai_interpret_request", {
+    title: "Gemini care-intake interpretation", annotations,
+    description: "Extracts a natural language care request. Never confirms or books care.",
+    inputSchema: z.object({ user_message: z.string().min(1).max(5000), current_draft: z.object(requestShape).optional() }),
+  }, async args => {
+    if (aiMode() === "off") return result({ status: "unavailable", mode: "off" });
+    try {
+      const now = malaysiaNow();
+      const extraction = await interpretCareMessage({
+        user_message: args.user_message, current_draft: args.current_draft as any,
+        today: now.date, now_time: now.time,
+        locations: listLocations(providers), service_codes: listServiceCodes(providers),
+      });
+      if (aiMode() === "shadow") {
+        console.error("Gemini shadow intake evaluated:", Object.keys(extraction.patch).join(","));
+        return result({ status: "unavailable", mode: "deterministic_fallback" });
+      }
+      return result({ status: "extracted", mode: "ai", ...extraction });
+    } catch (error) {
+      console.error("AI intake unavailable:", error instanceof Error ? error.message : "unknown");
+      return result({ status: "unavailable", mode: "deterministic_fallback" });
+    }
+  });
+
+  server.registerTool("carekaki_ai_recommend_providers", {
+    title: "Gemini ranking with deterministic eligibility", annotations,
+    description: "Validates confirmed requirements and checks all eligibility rules before AI ranking. Ineligible alternatives remain review-only.",
+    inputSchema: z.object({ ...requestShape, confirmed: z.boolean(), limit: z.number().int().min(1).max(20).optional() }),
+  }, async args => {
+    const validation = validateRequest(args);
+    if (validation.status !== "valid" || !validation.request) return result(validation);
+    const limit = args.limit ?? 5;
+    const baseline = filterAndRank(validation.request, providers, limit);
+    // Rank the full eligible pool, not just the rule-based top five.
+    const fullPool = filterAndRank(validation.request, providers, providers.length);
+    const candidates = fullPool.matches.length ? fullPool.matches : fullPool.alternatives ?? [];
+    if (!candidates.length || aiMode() === "off") return result({ ...baseline, mode: "deterministic_fallback" });
+    try {
+      const ranked = await rankCareCandidates(validation.request, candidates, providers);
+      if (aiMode() === "shadow") {
+        console.error("Gemini shadow ranking:", ranked.map(x => x.provider_id).join(","));
+        return result({ ...baseline, mode: "deterministic_fallback" });
+      }
+      const byId = new Map(candidates.map(x => [x.provider_id, x]));
+      const ordered = ranked.map((ai, index) => ({
+        ...byId.get(ai.provider_id)!,
+        ai: { rank: index + 1, suitability: ai.suitability,
+          strengths: ai.strengths, tradeoffs: ai.tradeoffs, explanation: ai.explanation },
+      }));
+      return result({ ...baseline, mode: "ai",
+        matches: baseline.matches.length ? ordered.slice(0, limit) : [],
+        ...(baseline.matches.length ? {} : { alternatives: ordered.slice(0, limit) }),
+      });
+    } catch (error) {
+      console.error("Gemini ranking unavailable:", error instanceof Error ? error.message : "unknown");
+      return result({ ...baseline, mode: "deterministic_fallback" });
+    }
+  });
+
+  server.registerTool("carekaki_ai_explain_recommendation", {
+    title: "Explain AI recommendations", annotations,
+    description: "Compare evaluated providers using known attributes and eligibility; no booking actions.",
+    inputSchema: z.object({ ...requestShape, confirmed: z.boolean(), provider_id: z.string(), compare_with_id: z.string().optional(), question: z.string().max(1000).optional() }),
+  }, async args => {
+    const validation = validateRequest(args);
+    if (validation.status !== "valid" || !validation.request) return result(validation);
+    const baseline = filterAndRank(validation.request, providers, 20);
+    const pool = baseline.matches.length ? baseline.matches : baseline.alternatives ?? [];
+    const selected = pool.filter(x => x.provider_id === args.provider_id || (args.compare_with_id && x.provider_id === args.compare_with_id));
+    if (!selected.some(x => x.provider_id === args.provider_id)) return result({ status: "not_found" });
+    try {
+      const ranked = await rankCareCandidates(validation.request, selected, providers, args.question);
+      return result({ status: "explained", mode: "ai", explanations: ranked });
+    } catch {
+      return result({ status: "explained", mode: "deterministic_fallback",
+        explanations: selected.map(x => ({ provider_id: x.provider_id, estimated_cost: x.estimated_cost,
+          ...("failed_checks" in x ? { failed_checks: x.failed_checks } : {}) })) });
+    }
   });
   return server;
 }
