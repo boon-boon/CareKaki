@@ -13,6 +13,180 @@
     </div>
   </div>
 
+  <!-- ===== Prominent clarification panel =====
+       Rendered as a fixed, centred overlay so the question is always visible,
+       no matter how tall the page is or how short the viewport is. -->
+  @if (showClarifyPanel() && clarifyMeta(); as meta) {
+    <div class="clarify-backdrop" (click)="dismissClarifyPanel()"></div>
+    <section class="clarify-panel" role="dialog" aria-modal="true" aria-labelledby="ck-clarify-title">
+      <div class="clarify-head">
+        <div class="clarify-head-left">
+          <div class="clarify-icon">
+            <app-icon [name]="meta.icon" [size]="20"/>
+          </div>
+          <div class="clarify-head-text">
+            <span class="clarify-eyebrow">The agent needs one more detail</span>
+            <h2 class="clarify-question" id="ck-clarify-title">
+              {{ clarifyQuestionText() || meta.prompt }}
+            </h2>
+          </div>
+        </div>
+        <button class="clarify-close" (click)="dismissClarifyPanel()" aria-label="Close">
+          <app-icon name="x" [size]="18"/>
+        </button>
+      </div>
+
+      <div class="clarify-progress">
+        <div class="clarify-progress-bar">
+          <div class="clarify-progress-fill" [style.width.%]="clarifyProgress().percent"></div>
+        </div>
+        <span class="clarify-progress-text">
+          Question {{ clarifyProgress().step }} · <strong>{{ meta.label }}</strong>
+          <span class="clarify-progress-count">{{ clarifyProgress().done }} of {{ clarifyProgress().total }} details captured</span>
+        </span>
+      </div>
+
+      <div class="clarify-body">
+        <label class="clarify-label" [for]="answerInputId">
+          Your answer
+          <span class="clarify-label-hint">{{ meta.hint }}</span>
+        </label>
+
+        <textarea
+          [id]="answerInputId"
+          class="clarify-textarea"
+          [class.has-error]="clarifyError()"
+          [placeholder]="meta.placeholder"
+          [ngModel]="clarificationAnswer()"
+          (ngModelChange)="clarificationAnswer.set($event); clarifyError.set(null)"
+          (keydown.enter)="$event.preventDefault(); submitClarifyAnswer()"
+          rows="3"
+        ></textarea>
+
+        <!-- Validation / connection error -->
+        @if (clarifyError(); as err) {
+          <div class="clarify-error" role="alert">
+            <app-icon name="alert" [size]="15"/>
+            <span>{{ err }}</span>
+          </div>
+        }
+        @if (mcpError(); as mcpErr) {
+          <div class="clarify-error" role="alert">
+            <app-icon name="alert" [size]="15"/>
+            <span>{{ mcpErr }}</span>
+          </div>
+        }
+
+        <!-- Success flash + what the agent understood -->
+        @if (clarifyFlash(); as f) {
+          <div class="clarify-flash" role="status">
+            <app-icon name="check-circle" [size]="15"/>
+            <span>{{ f }}</span>
+          </div>
+        }
+        @if (clarifyUnderstood().length) {
+          <div class="clarify-understood">
+            <span class="understood-title">Understood:</span>
+            @for (u of clarifyUnderstood(); track u) {
+              <span class="understood-chip">{{ u }}</span>
+            }
+          </div>
+        }
+
+        <!-- One-tap options offered by the MCP itself -->
+        @if (clarifyOptions().length) {
+          <div class="clarify-suggestions">
+            <span class="suggestions-label">Choose:</span>
+            @for (opt of clarifyOptions(); track opt.value) {
+              <button type="button" class="suggestion-chip" (click)="useClarifyOption(opt.value)">
+                {{ opt.label }}
+              </button>
+            }
+          </div>
+        }
+
+        <!-- Natural-language quick suggestions -->
+        <div class="clarify-suggestions">
+          <span class="suggestions-label">Try:</span>
+          @for (s of meta.suggestions; track s) {
+            <button type="button" class="suggestion-chip" (click)="useClarifySuggestion(s)">{{ s }}</button>
+          }
+        </div>
+
+        <details class="clarify-examples">
+          <summary>Show examples</summary>
+          <ul>
+            @for (ex of meta.examples; track ex) {
+              <li>
+                <button type="button" class="example-link" (click)="clarificationAnswer.set(ex); clarifyError.set(null)">
+                  {{ ex }}
+                </button>
+              </li>
+            }
+          </ul>
+        </details>
+
+        <!-- Live schedule preview for the date question -->
+        @if (isDateQuestion()) {
+          <div class="schedule-input-actions">
+            <button class="btn btn-outline btn-sm" (click)="previewSchedule()" [disabled]="!clarificationAnswer().trim()">
+              <app-icon name="search" [size]="14"/>
+              <span>Preview schedule</span>
+            </button>
+          </div>
+          @if (schedulePreview(); as sp) {
+            <div class="schedule-preview">
+              @if (!sp.startDate) {
+                <div class="preview-warn">
+                  <app-icon name="alert" [size]="16"/>
+                  <span>Couldn’t find a start date. Try adding “starting 1 November” or a date like 2026-11-01.</span>
+                </div>
+              } @else {
+                <div class="preview-grid">
+                  <div class="preview-cell">
+                    <span class="preview-k">Pattern</span>
+                    <span class="preview-v">{{ sp.recurring ? daysLabel(sp.days) : 'One-off' }}</span>
+                  </div>
+                  <div class="preview-cell">
+                    <span class="preview-k">Start date</span>
+                    <span class="preview-v">{{ formatDate(sp.startDate) }}</span>
+                  </div>
+                  @if (sp.hasTime) {
+                    <div class="preview-cell">
+                      <span class="preview-k">Shift</span>
+                      <span class="preview-v">{{ sp.start }} – {{ sp.end }} ({{ sp.duration }}h)</span>
+                    </div>
+                  }
+                </div>
+                @if (sp.recurring && sp.concreteDates.length > 1) {
+                  <div class="preview-dates">
+                    <span class="preview-k">First {{ sp.concreteDates.length }} occurrences:</span>
+                    <div class="schedule-chip-row">
+                      @for (d of sp.concreteDates; track d) {
+                        <span class="schedule-chip" [class.active]="d === sp.startDate">{{ shortDate(d) }}</span>
+                      }
+                    </div>
+                  </div>
+                }
+              }
+            </div>
+          }
+        }
+      </div>
+
+      <div class="clarify-actions">
+        <button class="btn btn-ghost btn-sm" (click)="dismissClarifyPanel()">Skip for now</button>
+        <div class="clarify-actions-right">
+          <span class="clarify-enter-hint">Press <kbd>Enter</kbd> to submit</span>
+          <button class="btn btn-primary" (click)="submitClarifyAnswer()" [disabled]="mcpValidating()">
+            <app-icon name="check-circle" [size]="17"/>
+            <span>Apply answer</span>
+          </button>
+        </div>
+      </div>
+    </section>
+  }
+
   <div class="intake-layout">
     <!-- ===== Left: Input ===== -->
     <div class="intake-col">
@@ -144,6 +318,12 @@
               Intake ID: <strong>{{ intakeId() }}</strong>
             </span>
           </div>
+          @if (missingSlots().length) {
+            <button class="btn btn-primary btn-sm banner-cta" (click)="openClarifyPanel()">
+              <app-icon name="zap" [size]="15"/>
+              <span>Answer questions</span>
+            </button>
+          }
         </div>
 
         <!-- Entity cards -->
@@ -250,6 +430,17 @@
         </div>
 
         <!-- ===== MCP Validation & Clarification Engine Card ===== -->
+        @if (mcpError(); as mcpErr) {
+          <div class="card mcp-error-card">
+            <div class="card-body">
+              <div class="clarify-error" role="alert">
+                <app-icon name="alert" [size]="15"/>
+                <span>{{ mcpErr }}</span>
+              </div>
+            </div>
+          </div>
+        }
+
         @if (mcpValidation(); as val) {
           <div class="card mcp-validation-card">
             <div class="card-header">
@@ -267,106 +458,21 @@
             </div>
 
             <div class="card-body">
-              <!-- Case 1: Clarification needed -->
+              <!-- Case 1: Clarification needed — the input itself lives in the
+                   prominent overlay panel above; this is the in-page summary. -->
               @if (val.status === 'needs_clarification' && val.question) {
-                <div class="clarification-box">
+                <div class="clarification-summary">
                   <div class="clarification-prompt">
                     <app-icon name="alert" [size]="20"/>
                     <div class="prompt-text">
                       <strong>{{ val.question.text }}</strong>
-                      <span class="prompt-hint">Question from <code>carekaki_validate_request</code></span>
+                      <span class="prompt-hint">Question from <code>carekaki_validate_request</code> · field <code>{{ val.question.field }}</code></span>
                     </div>
                   </div>
-
-                  @if (val.question.options && val.question.options.length > 0) {
-                    <div class="choice-chips">
-                      @for (opt of val.question.options; track opt.value) {
-                        <button class="choice-chip-btn" (click)="selectMcpChoice(val.question.field, opt.value)">
-                          <app-icon name="check" [size]="14"/>
-                          <span>{{ opt.label }}</span>
-                        </button>
-                      }
-                    </div>
-                  } @else if (val.question.field === 'date') {
-                    <!-- Rich schedule input: single date OR recurring weekly pattern -->
-                    <div class="schedule-input-box">
-                      <input
-                        class="input"
-                        placeholder="e.g. 2026-10-17 &middot; 1 November &middot; Saturdays and Sundays, 9am to 5pm, starting 1 November"
-                        [ngModel]="clarificationAnswer()"
-                        (ngModelChange)="clarificationAnswer.set($event)"
-                        (keyup.enter)="submitClarification(val.question.field)"
-                      />
-                      <div class="schedule-input-actions">
-                        <button class="btn btn-outline btn-sm" (click)="previewSchedule()" [disabled]="!clarificationAnswer().trim()">
-                          <app-icon name="search" [size]="14"/>
-                          <span>Preview schedule</span>
-                        </button>
-                        <button class="btn btn-primary btn-sm" (click)="submitClarification(val.question.field)" [disabled]="!clarificationAnswer().trim()">
-                          <app-icon name="check" [size]="14"/>
-                          <span>Apply</span>
-                        </button>
-                      </div>
-                      <p class="schedule-input-hint">
-                        Tip: you can type a repeating pattern like <em>“Saturdays and Sundays, 9am to 5pm, starting 1 November”</em> —
-                        CareKaki expands it into concrete dates and sets the shift time automatically.
-                      </p>
-
-                      @if (schedulePreview(); as sp) {
-                        <div class="schedule-preview">
-                          @if (!sp.startDate) {
-                            <div class="preview-warn">
-                              <app-icon name="alert" [size]="16"/>
-                              <span>Couldn’t find a start date. Try adding “starting 1 November” or a date like 2026-11-01.</span>
-                            </div>
-                          } @else {
-                            <div class="preview-grid">
-                              <div class="preview-cell">
-                                <span class="preview-k">Pattern</span>
-                                <span class="preview-v">{{ sp.recurring ? daysLabel(sp.days) : 'One-off' }}</span>
-                              </div>
-                              <div class="preview-cell">
-                                <span class="preview-k">Start date</span>
-                                <span class="preview-v">{{ formatDate(sp.startDate) }}</span>
-                              </div>
-                              @if (sp.hasTime) {
-                                <div class="preview-cell">
-                                  <span class="preview-k">Shift</span>
-                                  <span class="preview-v">{{ sp.start }} – {{ sp.end }} ({{ sp.duration }}h)</span>
-                                </div>
-                              }
-                            </div>
-                            @if (sp.recurring && sp.concreteDates.length > 1) {
-                              <div class="preview-dates">
-                                <span class="preview-k">First {{ sp.concreteDates.length }} occurrences:</span>
-                                <div class="schedule-chip-row">
-                                  @for (d of sp.concreteDates; track d) {
-                                    <span class="schedule-chip" [class.active]="d === sp.startDate">{{ shortDate(d) }}</span>
-                                  }
-                                </div>
-                              </div>
-                            }
-                            <button class="btn btn-primary btn-sm" (click)="applySchedule()">
-                              <app-icon name="check-circle" [size]="14"/>
-                              <span>Apply to request</span>
-                            </button>
-                          }
-                        </div>
-                      }
-                    </div>
-                  } @else {
-                    <div class="clarification-input-group" style="display: flex; gap: 8px; margin-top: 10px;">
-                      <input
-                        class="input"
-                        style="flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--amber-300);"
-                        [placeholder]="'Enter ' + val.question.field"
-                        [ngModel]="clarificationAnswer()"
-                        (ngModelChange)="clarificationAnswer.set($event)"
-                        (keyup.enter)="submitClarification(val.question.field)"
-                      />
-                      <button class="btn btn-primary btn-sm" (click)="submitClarification(val.question.field)">Submit</button>
-                    </div>
-                  }
+                  <button class="btn btn-primary" (click)="openClarifyPanel()">
+                    <app-icon name="zap" [size]="16"/>
+                    <span>Answer this question</span>
+                  </button>
                 </div>
               }
 
