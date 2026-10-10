@@ -92,7 +92,7 @@ export class MatchingResults implements OnInit {
     } catch (error) {
       console.warn('Could not load live matching filters:', error);
       if (!this.bookingSession.current() && !this.data.activeIntake()) {
-        this.mcpError.set('Could not load the available cities and services from MCP. Please check the backend.');
+        this.mcpError.set('Could not load the available cities and services. Please check your connection and try again.');
       }
     }
   }
@@ -285,8 +285,8 @@ export class MatchingResults implements OnInit {
         }
       }
     } catch (err: any) {
-      console.warn('MCP search failed, falling back:', err);
-      if (sequence === this.searchSequence) this.mcpError.set(err.message || 'MCP server connection error');
+      console.warn('CareKaki service search failed, falling back:', err);
+      if (sequence === this.searchSequence) this.mcpError.set(err.message || 'CareKaki service connection error');
     } finally {
       if (sequence === this.searchSequence) this.mcpLoading.set(false);
     }

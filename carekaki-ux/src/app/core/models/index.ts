@@ -1,6 +1,6 @@
 /* ============================================================
-   CareKaki Pro — Core Domain Models & Interfaces
-   Compliant with CareKaki Pro Technical Specification v1.0
+   CareKaki — Core Domain Models & Interfaces
+   Compliant with CareKaki Technical Specification v1.0
    ============================================================ */
 
 export type AvailabilityStatus = 'available' | 'on_assignment' | 'on_leave';

@@ -1,11 +1,11 @@
 <!-- ============================================================
-     CareKaki Pro — App Shell Layout with Live MCP Bridge
+     CareKaki — App Shell Layout
      Responsive: Sidebar on desktop, bottom-nav on mobile
      ============================================================ -->
 
 <!-- Mobile overlay backdrop -->
-@if (sidebarOpen() || mcpInspectorOpen()) {
-  <div class="sidebar-backdrop" (click)="closeSidebar(); closeMcpInspector()"></div>
+@if (sidebarOpen()) {
+  <div class="sidebar-backdrop" (click)="closeSidebar()"></div>
 }
 
 <!-- ===== Sidebar (Desktop + Mobile drawer) ===== -->
@@ -18,7 +18,7 @@
       </svg>
     </div>
     <div class="brand-text">
-      <span class="brand-name">CareKaki<span class="brand-accent">Pro</span></span>
+      <span class="brand-name">CareKaki</span>
       <span class="brand-tagline">Agentic Care Operations</span>
     </div>
     <button class="sidebar-close" (click)="closeSidebar()" aria-label="Close menu">
@@ -41,23 +41,19 @@
     }
   </nav>
 
-  <!-- Sidebar footer with MCP indicator -->
+  <!-- Sidebar footer -->
   <div class="sidebar-footer">
     <div class="sidebar-footer-card">
-      <div class="footer-card-row">
-        <span class="mcp-indicator-dot" [class.online]="mcp.isOnline()"></span>
-        <span style="font-weight: 600;">MCP: {{ mcp.status() === 'online' ? 'Connected (:3000)' : (mcp.status() === 'checking' ? 'Connecting...' : 'Standby Mode') }}</span>
-      </div>
       <div class="footer-card-row">
         <app-icon name="shield" [size]="15"/>
         <span>SST 8% compliant</span>
       </div>
       <div class="footer-card-row">
         <app-icon name="users" [size]="15"/>
-        <span>Caregivers: 20 demo</span>
+        <span>Caregivers: 20</span>
       </div>
     </div>
-    <p class="sidebar-copyright">CareKaki Pro v1.0 &copy; {{ currentYear }}</p>
+    <p class="sidebar-copyright">CareKaki v1.0 &copy; {{ currentYear }}</p>
   </div>
 </aside>
 
@@ -70,44 +66,15 @@
         <app-icon name="menu" [size]="24"/>
       </button>
       <div class="topbar-brand">
-        <span class="brand-name">CareKaki<span class="brand-accent">Pro</span></span>
+        <span class="brand-name">CareKaki</span>
       </div>
     </div>
 
     <div class="topbar-right">
-      <!-- Live MCP status pill -->
-      <button
-        class="mcp-status-chip"
-        [class.online]="mcp.isOnline()"
-        [class.checking]="mcp.status() === 'checking'"
-        [class.offline]="mcp.status() === 'offline'"
-        (click)="toggleMcpInspector()"
-        title="Open CareKaki MCP Inspector & Live Tools"
-      >
-        <span class="mcp-dot"></span>
-        <span class="mcp-chip-text">
-          @if (mcp.status() === 'online') {
-            MCP Server Live
-          } @else if (mcp.status() === 'checking') {
-            MCP Connecting...
-          } @else {
-            MCP Standby
-          }
-        </span>
-        <span class="mcp-badge-tools">6 tools</span>
-      </button>
-
       <div class="search-box hide-mobile">
         <app-icon name="search" [size]="18"/>
         <input type="text" placeholder="Search caregivers, intakes, documents..." class="search-input"/>
       </div>
-
-      <button class="topbar-icon-btn hide-mobile" (click)="toggleMcpInspector()" title="MCP Server Logs">
-        <app-icon name="terminal" [size]="18"/>
-        @if (mcp.callLogs().length > 0) {
-          <span class="notif-dot"></span>
-        }
-      </button>
 
       <div class="user-chip">
         <div class="user-avatar">AK</div>
@@ -138,133 +105,3 @@
     }
   </nav>
 </div>
-
-<!-- ===== MCP Inspector Slide-out Drawer ===== -->
-<aside class="mcp-drawer" [class.open]="mcpInspectorOpen()">
-  <div class="drawer-header">
-    <div class="drawer-title-group">
-      <div class="drawer-icon-wrap">
-        <app-icon name="terminal" [size]="20"/>
-      </div>
-      <div>
-        <h3 class="drawer-title">CareKaki MCP Inspector</h3>
-        <p class="drawer-subtitle">Model Context Protocol Engine</p>
-      </div>
-    </div>
-    <button class="drawer-close-btn" (click)="closeMcpInspector()" aria-label="Close inspector">
-      <app-icon name="x" [size]="20"/>
-    </button>
-  </div>
-
-  <div class="drawer-body">
-    <!-- Server Status Card -->
-    <div class="mcp-card">
-      <div class="mcp-card-header">
-        <span class="mcp-card-label">Server Connection</span>
-        <span class="status-badge" [class.badge-green]="mcp.isOnline()" [class.badge-amber]="!mcp.isOnline()">
-          {{ mcp.status() === 'online' ? 'Online' : 'Standby / Local Mock' }}
-        </span>
-      </div>
-      <div class="mcp-info-row">
-        <span class="info-label">Endpoint:</span>
-        <code class="info-value">{{ mcp.serverUrl() }}</code>
-      </div>
-      <div class="mcp-info-row">
-        <span class="info-label">Transport:</span>
-        <span class="info-value">Streamable HTTP (JSON-RPC 2.0 / SSE)</span>
-      </div>
-      <div class="mcp-info-row">
-        <span class="info-label">Protocol:</span>
-        <span class="info-value">2025-03-26 / TypeScript SDK v2</span>
-      </div>
-      <div class="mcp-info-row">
-        <span class="info-label">Data Source:</span>
-        <span class="info-value">carekaki_providers_demo.csv (20 providers)</span>
-      </div>
-
-      <div class="mcp-btn-row">
-        <button class="btn btn-outline btn-sm" (click)="refreshMcp()">
-          <app-icon name="refresh" [size]="14"/>
-          <span>Reconnect</span>
-        </button>
-        <button class="btn btn-primary btn-sm" (click)="runQuickMcpTest()" [disabled]="testRunning()">
-          <app-icon name="play" [size]="14"/>
-          <span>{{ testRunning() ? 'Testing...' : 'Test Tool Call' }}</span>
-        </button>
-      </div>
-
-      @if (testResult()) {
-        <div class="test-result-box" [class.success]="testResult().success" [class.error]="!testResult().success">
-          <div class="test-result-header">
-            <strong>carekaki_get_search_options response:</strong>
-          </div>
-          <pre class="test-json">{{ testResult().data ? (testResult().data | json) : testResult().error }}</pre>
-        </div>
-      }
-    </div>
-
-    <!-- Available MCP Tools -->
-    <div class="mcp-card">
-      <div class="mcp-card-header">
-        <span class="mcp-card-label">Registered MCP Tools (6)</span>
-      </div>
-      <div class="tools-list">
-        <div class="tool-item">
-          <div class="tool-name"><code>carekaki_get_search_options</code></div>
-          <div class="tool-desc">Discover Malaysian cities, care services, demo dates & presets.</div>
-        </div>
-        <div class="tool-item">
-          <div class="tool-name"><code>carekaki_validate_request</code></div>
-          <div class="tool-desc">Validate partial care request; returns clarification question or confirmation.</div>
-        </div>
-        <div class="tool-item">
-          <div class="tool-name"><code>carekaki_search_providers</code></div>
-          <div class="tool-desc">Filter eligible caregivers & rank by rating (50%), affordability (35%), language (15%).</div>
-        </div>
-        <div class="tool-item">
-          <div class="tool-name"><code>carekaki_list_providers</code></div>
-          <div class="tool-desc">Browse 20 demo CSV providers with location, service, and rate filters.</div>
-        </div>
-        <div class="tool-item">
-          <div class="tool-name"><code>carekaki_get_provider</code></div>
-          <div class="tool-desc">Retrieve single caregiver record with full time-window availability.</div>
-        </div>
-        <div class="tool-item">
-          <div class="tool-name"><code>carekaki_explain_matching</code></div>
-          <div class="tool-desc">Diagnose 5 eligibility checks (location, services, verified, availability, budget).</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Live Execution Call Logs -->
-    <div class="mcp-card">
-      <div class="mcp-card-header">
-        <span class="mcp-card-label">Live Tool Execution Logs</span>
-        <span class="log-count">{{ mcp.callLogs().length }} events</span>
-      </div>
-      @if (mcp.callLogs().length === 0) {
-        <p class="empty-log-text">No MCP tool calls yet. Actions in Intake, Matching, or Roster will stream here.</p>
-      } @else {
-        <div class="logs-stream">
-          @for (log of mcp.callLogs(); track log.id) {
-            <div class="log-entry" [class.success]="log.status === 'success'" [class.error]="log.status === 'error'">
-              <div class="log-entry-top">
-                <code class="log-tool-name">{{ log.tool }}</code>
-                <span class="log-meta">{{ log.durationMs }}ms · {{ log.timestamp }}</span>
-              </div>
-              <details class="log-details">
-                <summary>Payload & Result</summary>
-                <div class="log-json-block">
-                  <div class="json-label">Arguments:</div>
-                  <pre>{{ log.args | json }}</pre>
-                  <div class="json-label">Result:</div>
-                  <pre>{{ log.result | json }}</pre>
-                </div>
-              </details>
-            </div>
-          }
-        </div>
-      }
-    </div>
-  </div>
-</aside>

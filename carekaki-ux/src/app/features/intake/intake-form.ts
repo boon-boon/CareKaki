@@ -568,7 +568,7 @@ export class IntakeForm {
 
   readonly examples: ExamplePrompt[] = [
     {
-      label: 'Petaling Jaya Elderly Care (MCP Demo)',
+      label: 'Petaling Jaya Elderly Care',
       text: 'Need elderly care in Petaling Jaya on 2026-10-17 starting at 09:00 for 2 hours. Budget is RM200.',
     },
     {
@@ -779,11 +779,11 @@ export class IntakeForm {
         this.showClarifyPanel.set(false);
       }
     } catch (err) {
-      console.warn('MCP validation failed:', err);
+      console.warn('CareKaki service validation failed:', err);
       // Surface the failure instead of silently continuing, so the user knows
-      // the MCP engine was unreachable.
+      // the CareKaki service was unreachable.
       this.mcpError.set(
-        'Could not reach the CareKaki MCP engine. Start it with “npm run http” (port 3000) and try again.',
+        'We could not reach CareKaki right now. Please check your connection and try again.',
       );
       this.mcpValidation.set(null);
     } finally {

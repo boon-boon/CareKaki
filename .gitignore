@@ -17,6 +17,7 @@ out-tsc/
 !.env.example
 
 # Large binary artifacts & agent metadata
+outputs/
 outputs/*.zip
 .workbuddy-ai/
 conversation_dump.json

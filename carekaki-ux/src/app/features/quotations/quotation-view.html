@@ -18,7 +18,7 @@
   </div>
 
   @if (quotationLoading()) {
-    <div class="card" style="padding:24px;">Loading the selected caregiver's live rate from MCP…</div>
+    <div class="card" style="padding:24px;">Loading the selected caregiver's live rate…</div>
   } @else if (quotationError()) {
     <div class="card" style="padding:24px; color:#aa3030;">{{ quotationError() }}</div>
   } @else {
@@ -33,7 +33,7 @@
           </svg>
         </div>
         <div>
-          <span class="doc-brand-name">CareKaki Pro</span>
+          <span class="doc-brand-name">CareKaki</span>
           <span class="doc-brand-sub">Agentic Care Operations</span>
         </div>
       </div>
@@ -211,7 +211,7 @@
     <div class="doc-footer">
       <div class="footer-note">
         <app-icon name="zap" [size]="15"/>
-        Prepared by CareKaki Pro Agentic System
+        Prepared by CareKaki Agentic System
       </div>
       <span class="footer-valid">Valid for 7 days from issue date</span>
     </div>

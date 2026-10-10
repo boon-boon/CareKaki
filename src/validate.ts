@@ -176,7 +176,7 @@ export function validateRequest(body: unknown, now = new Date()): ValidationResu
     delete request.start_time;
     return {
       status: "needs_clarification", draft_request: request,
-      question: { field: "start_time", text: "This demo supports same-day care. Please choose an earlier start time or adjust the duration.", type: "time", options: [] },
+      question: { field: "start_time", text: "The visit cannot run past midnight. Please choose an earlier start time or adjust the duration.", type: "time", options: [] },
       missing_fields: ["start_time"],
     };
   }
