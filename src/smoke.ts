@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { parseCsv } from "./csv.js";
 import { loadProviders, normalizeDate } from "./providers.js";
-import { validateRequest } from "./validate.js";
-import { filterAndRank, explainMatching } from "./match.js";
+import { validateRequest, malaysiaNow } from "./validate.js";
+import { filterAndRank, explainMatching, matchingChecks } from "./match.js";
 import { startHttpServer } from "./http.js";
 import type { CareRequest } from "./types.js";
 
@@ -51,7 +51,43 @@ function domainSmoke() {
   assert.equal(validateRequest({ ...sample, duration_hours: "2" }).question!.field, "duration_hours");
   assert.equal(validateRequest({ ...sample, date: "2026-02-30" }).question!.field, "date");
   assert.equal(validateRequest(null).status, "invalid_request");
-  assert.equal(filterAndRank({ ...request, location: "PJ" }, providers).total_matches, 0);
+  const fallback = filterAndRank({ ...request, location: "PJ" }, providers);
+  assert.equal(fallback.total_matches, 0);
+  assert.equal(fallback.alternatives?.length, 5);
+  assert.ok(fallback.alternatives?.every(p => p.verified && p.eligible === false && p.failed_checks.includes("location")));
+  assert.ok(fallback.alternatives!.every((p, i, list) => i === 0 || list[i - 1]!.passed_checks >= p.passed_checks));
+  assert.equal(filterAndRank(request, providers).alternatives, undefined);
+  record("Top five verified fallback suggestions without pretending eligibility");
+  const fixedNow = new Date("2026-10-10T10:30:00Z");
+  assert.deepEqual(malaysiaNow(fixedNow), { date: "2026-10-10", time: "18:30" });
+  assert.equal(validateRequest({ ...sample, date: "2026-10-09" }, fixedNow).question?.field, "date");
+  assert.equal(validateRequest({ ...sample, date: "2026-10-10", start_time: "18:00" }, fixedNow).question?.field, "start_time");
+  assert.equal(validateRequest({ ...sample, date: "2026-10-10", start_time: "19:00" }, fixedNow).status, "valid");
+  assert.deepEqual(validateRequest({ ...sample, date: "2026-10-19", schedule_days: "weekday" }, fixedNow).request?.schedule_days, ["Mon", "Tue", "Wed", "Thu", "Fri"]);
+  assert.equal(validateRequest({ ...sample, date: "2026-10-19", schedule_days: "weekends" }, fixedNow).question?.field, "date");
+  assert.deepEqual(validateRequest({ ...sample, schedule_days: "weekend", date: "2026-10-18" }, fixedNow).request?.schedule_days, ["Sat", "Sun"]);
+  record("Malaysia current-time validation and weekday/weekend recurrence");
+  const weekdays = validateRequest({
+    ...sample, date: "2026-10-12", schedule_days: "weekday", max_budget: 1000,
+  }, new Date("2026-10-10T10:30:00Z")).request!;
+  assert.equal(weekdays.schedule_dates?.length, 12);
+  assert.deepEqual(weekdays.schedule_dates?.slice(0, 5),
+    ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16"]);
+  assert.ok(weekdays.schedule_dates?.every(d =>
+    [1, 2, 3, 4, 5].includes(new Date(d + "T00:00:00Z").getUTCDay())));
+  const synthetic = {
+    ...providers[0]!, verified: true, location: weekdays.location,
+    services: [...weekdays.required_services], hourly_rate: 20,
+    availability: weekdays.schedule_dates!.map(date => ({ date, start: "09:00", end: "17:00" })),
+  };
+  assert.equal(matchingChecks(weekdays, synthetic).availability, true);
+  assert.equal(matchingChecks(weekdays, { ...synthetic, availability: synthetic.availability.slice(0, -1) }).availability, false);
+  assert.equal(filterAndRank(weekdays, [synthetic]).matches[0]?.estimated_cost, 20 * 2 * 12);
+  assert.equal(filterAndRank({ ...weekdays, max_budget: 100 }, [synthetic]).total_matches, 0);
+  assert.equal(filterAndRank(weekdays, [{ ...synthetic, availability: synthetic.availability.slice(0, -1) }]).alternatives?.[0]?.covered_dates, 11);
+  assert.equal(validateRequest({ ...sample, date: "2026-10-12", schedule_days: "weekday",
+    schedule_dates: ["2026-10-12"] }, new Date("2026-10-10T10:30:00Z")).request?.schedule_dates?.length, 1);
+  record("Whole weekday schedule: 12 dates, availability, total cost, explicit single-day inspection");
   assert.equal(explainMatching(request, providers).find(p => p.provider_id === "CK006")!.checks.verified, false);
   record("Clarification, strict consent, overnight and malformed-input handling (cases D-F)");
 
@@ -93,6 +129,12 @@ async function toolChecks(rpc: (method: string, params?: Json) => Promise<Json>)
   const found = await tool("carekaki_search_providers", sample);
   assert.equal(found.total_matches, 5);
   assert.equal(found.matches[0].provider_id, "CK002");
+  const noExact = await tool("carekaki_search_providers", { ...sample, location: "PJ" });
+  assert.equal(noExact.status, "no_matches");
+  assert.equal(noExact.matches.length, 0);
+  assert.equal(noExact.alternatives.length, 5);
+  assert.ok(noExact.alternatives.every((p: Json) => p.eligible === false && p.verified === true));
+  assert.equal((await tool("carekaki_search_providers", { ...sample, date: "2026-10-09" })).question.field, "date");
   assert.equal((await tool("carekaki_search_providers", { ...sample, limit: 1 })).matches.length, 1);
   assert.equal((await tool("carekaki_list_providers", { location: "Cheras" })).total_providers, 1);
   assert.equal((await tool("carekaki_get_provider", { provider_id: "CK001" })).provider.provider_id, "CK001");

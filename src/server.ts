@@ -13,11 +13,14 @@ const requestShape = {
   duration_hours: z.union([z.number(), z.string()]).nullable().optional().describe("Positive number of hours; strings are not coerced and need clarification."),
   max_budget: z.union([z.number(), z.string()]).nullable().optional().describe("Maximum TOTAL cost in MYR, not hourly rate. Must be a positive number."),
   preferred_language: z.string().nullable().optional().describe("Optional ranking preference, e.g. Mandarin; empty string means no preference. Not a hard filter."),
+  schedule_days: z.union([z.array(z.string()), z.string()]).nullable().optional().describe("Optional recurrence. 'weekday' means Mon-Fri; 'weekend' means Sat-Sun. Without explicit schedule_dates, expand to next 12 occurrences."),
+  schedule_dates: z.array(z.string()).nullable().optional().describe("Optional explicit occurrence dates (1-12). Multiple dates require availability on EVERY date; [date] inspects one day."),
   confirmed: z.boolean().nullable().optional().describe("True ONLY after the user explicitly confirms the entire current set of requirements. Reset after edits."),
 };
 const requestSchema = z.object({
   location: z.string(), required_services: z.array(z.string()), date: z.string(), start_time: z.string(),
   duration_hours: z.number(), max_budget: z.number(), preferred_language: z.string(),
+  schedule_days: z.array(z.string()).optional(), schedule_dates: z.array(z.string()).optional(),
 });
 const slotSchema = z.object({ date: z.string(), start: z.string(), end: z.string() });
 const providerSchema = z.object({
@@ -35,18 +38,25 @@ const matchSchema = z.object({
   provider_id: z.string(), name: z.string(), location: z.string(), hourly_rate: z.number(), estimated_cost: z.number(),
   currency: z.literal("MYR"), rating: z.number(), verified: z.boolean(), languages: z.array(z.string()),
   preferred_language_match: z.boolean(), available: z.literal(true), match_score: z.number(),
+  covered_dates: z.number().int().optional(), requested_dates: z.number().int().optional(),
+});
+const alternativeSchema = matchSchema.omit({ available: true }).extend({
+  available: z.boolean(), eligible: z.literal(false), passed_checks: z.number().int(),
+  checks: z.object({ location: z.boolean(), services: z.boolean(), verified: z.boolean(), availability: z.boolean(), budget: z.boolean() }),
+  failed_checks: z.array(z.string()), unavailable_dates: z.array(z.string()).optional(),
 });
 const searchOutput = z.object({
   ...validationShape,
   status: z.enum(["valid", "invalid_request", "needs_clarification", "needs_confirmation", "matches_found", "no_matches"]),
   total_matches: z.number().int().optional(), matches: z.array(matchSchema).optional(),
+  alternatives: z.array(alternativeSchema).optional(),
   data_source: z.literal("fictional_demo").optional(), booking_status: z.literal("not_booked").optional(),
 });
 const diagnosticSchema = z.object({
   provider_id: z.string(), name: z.string(), eligible: z.boolean(),
   checks: z.object({ location: z.boolean(), services: z.boolean(), verified: z.boolean(), availability: z.boolean(), budget: z.boolean() }),
   failed_checks: z.array(z.string()),
-  actual_values: z.object({ location: z.string(), services: z.array(z.string()), verified: z.boolean(), availability: z.array(slotSchema), estimated_cost: z.number() }),
+  actual_values: z.object({ location: z.string(), services: z.array(z.string()), verified: z.boolean(), availability: z.array(slotSchema), estimated_cost: z.number(), covered_dates: z.number().int().optional(), requested_dates: z.number().int().optional(), unavailable_dates: z.array(z.string()).optional() }),
 });
 function result(value: object) {
   return { content: [{ type: "text" as const, text: JSON.stringify(value) }], structuredContent: value as Record<string, unknown> };
@@ -80,7 +90,7 @@ export function createServer(): McpServer {
 
   server.registerTool("carekaki_search_providers", {
     title: "Search and rank care providers", annotations,
-    description: "Search ONLY after explicit user confirmation of city, date, start time, duration, all care services and total MYR budget. Missing/invalid fields return clarification; unconfirmed inputs return needs_confirmation WITHOUT searching. Requires verified providers, all requested services, full availability and budget fit. Rank: rating 50%, affordability 35%, language 15%. Returns top five by default. Fictional demo records only; does not book care.",
+    description: "Search ONLY after explicit confirmation. Weekdays means Mon-Fri, weekends means Sat-Sun. Recurring searches check all next 12 schedule dates for full availability and apply MYR budget to the TOTAL cost of all visits. Exact matches pass all five criteria; otherwise return five verified review-only alternatives with covered-date counts. Fictional demo records; never books care.",
     inputSchema: z.object({ ...requestShape, limit: z.number().int().min(1).max(20).nullable().optional().describe("Maximum results; defaults to the original workflow's five. total_matches counts all eligible providers.") }),
     outputSchema: searchOutput,
   }, async args => {

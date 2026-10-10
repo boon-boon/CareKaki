@@ -27,6 +27,8 @@ export interface CareRequest {
   duration_hours: number;
   max_budget: number;
   preferred_language: string; // "" means "no preference"
+  schedule_days?: string[]; // Canonical Mon..Sun recurrence.
+  schedule_dates?: string[]; // Dates being matched together; one entry means single-date inspection.
 }
 
 /** A partially collected request, as returned during clarification. */
@@ -73,6 +75,8 @@ export interface ProviderMatch {
   preferred_language_match: boolean;
   available: true;
   match_score: number;
+  covered_dates?: number;
+  requested_dates?: number;
 }
 
 export interface MatchResult {
@@ -80,6 +84,7 @@ export interface MatchResult {
   request: CareRequest;
   total_matches: number;
   matches: ProviderMatch[];
+  alternatives?: ProviderAlternative[];
   data_source: 'fictional_demo';
   booking_status: 'not_booked';
 }
@@ -90,6 +95,16 @@ export interface MatchChecks {
   verified: boolean;
   availability: boolean;
   budget: boolean;
+}
+
+/** These are review-only suggestions that do not meet every requirement. */
+export interface ProviderAlternative extends Omit<ProviderMatch, 'available'> {
+  available: boolean;
+  checks: MatchChecks;
+  passed_checks: number;
+  failed_checks: string[];
+  eligible: false;
+  unavailable_dates?: string[];
 }
 
 export interface ProviderDiagnostic {
@@ -104,5 +119,8 @@ export interface ProviderDiagnostic {
     verified: boolean;
     availability: AvailabilitySlot[];
     estimated_cost: number;
+    covered_dates?: number;
+    requested_dates?: number;
+    unavailable_dates?: string[];
   };
 }
