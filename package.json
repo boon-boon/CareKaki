@@ -15,8 +15,9 @@
   ],
   "scripts": {
     "postinstall": "npm --prefix carekaki-ux install",
-    "prestart": "npm run build:all",
+    "prestart": "npm run build",
     "start": "node scripts/serve-prod.mjs",
+    "start:full": "npm run build:all && node scripts/serve-prod.mjs",
     "stdio": "node --env-file-if-exists=.env dist/index.js",
     "http": "node --env-file-if-exists=.env dist/http.js",
     "smoke": "node dist/smoke.js",

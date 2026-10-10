@@ -17,7 +17,17 @@ if (existsSync(envFile)) {
 // effect: that file only self-starts when it is process.argv[1], so importing it
 // from here would boot nothing. Node's ESM loader also requires a file: URL —
 // a bare Windows path (C:\...) throws ERR_UNSUPPORTED_ESM_URL_SCHEME.
-const { startHttpServer } = await import(pathToFileURL(path.join(root, "dist", "http.js")).href);
+const serverEntry = path.join(root, "dist", "http.js");
+if (!existsSync(serverEntry)) {
+  console.error('CareKaki: dist/http.js not found. Run "npm run build" first.');
+  process.exit(1);
+}
+const frontendEntry = path.join(root, "carekaki-ux", "dist", "carekaki-ux", "browser", "index.html");
+if (!existsSync(frontendEntry)) {
+  console.error('CareKaki: Angular build not found. Run "npm run ux:build" (needs Node >= 22.22.3 / 24.15.0) to serve the UI.');
+}
+
+const { startHttpServer } = await import(pathToFileURL(serverEntry).href);
 
 const running = startHttpServer();
 running.listener.once("listening", () => {
