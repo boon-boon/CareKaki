@@ -3,7 +3,7 @@
 // then starts the compiled single-port HTTP + SPA server.
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 process.env.NODE_ENV = "production";
 
@@ -13,4 +13,26 @@ if (existsSync(envFile)) {
   try { process.loadEnvFile(envFile); } catch { /* Node <20.12 or malformed .env: ignore */ }
 }
 
-await import(path.join(root, "dist", "http.js"));
+// Invoke the server explicitly instead of importing dist/http.js for its side
+// effect: that file only self-starts when it is process.argv[1], so importing it
+// from here would boot nothing. Node's ESM loader also requires a file: URL —
+// a bare Windows path (C:\...) throws ERR_UNSUPPORTED_ESM_URL_SCHEME.
+const { startHttpServer } = await import(pathToFileURL(path.join(root, "dist", "http.js")).href);
+
+const running = startHttpServer();
+running.listener.once("listening", () => {
+  const address = running.listener.address();
+  const port = typeof address === "object" && address ? address.port : process.env.PORT ?? 3000;
+  console.error(`CareKaki: HTTP + SPA ready at http://${process.env.HOST ?? "0.0.0.0"}:${port}/ (MCP at /mcp)`);
+});
+running.listener.once("error", error => {
+  console.error("CareKaki HTTP failed:", error);
+  process.exitCode = 1;
+});
+
+const stop = async code => {
+  try { await running.close(); process.exit(code); }
+  catch (error) { console.error("CareKaki shutdown failed:", error); process.exit(1); }
+};
+process.once("SIGINT", () => void stop(0));
+process.once("SIGTERM", () => void stop(0));
