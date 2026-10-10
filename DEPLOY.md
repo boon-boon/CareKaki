@@ -120,3 +120,95 @@ host-header/origin validation is enabled, but it is *not* authentication. Before
 any real use you MUST add authentication and terminate HTTPS in front of this
 service (reverse proxy or platform TLS). Do not expose it publicly with real or
 personal data.
+
+---
+
+## Netlify deployment
+
+Netlify serves static assets from its CDN and does not run a long-lived Node
+process, so the single-port model is split into a static site plus two
+serverless functions — the MCP server itself is reused unchanged.
+
+```
+Browser ──▶ Netlify CDN ──┬─▶ /mcp     → netlify/functions/mcp.mjs    (MCP Streamable HTTP)
+                          ├─▶ /health  → netlify/functions/health.mjs (JSON probe)
+                          └─▶ /*       → /index.html                  (Angular SPA)
+```
+
+| Single-port piece | Netlify equivalent |
+|---|---|
+| `dist/http.js` static middleware | `publish = "public"` (committed SPA bundle) |
+| `GET /health` | `netlify/functions/health.mjs` |
+| `app.all("/mcp")` | `netlify/functions/mcp.mjs` |
+| SPA fallback regex | `[[redirects]] from = "/*"` in `netlify.toml` |
+
+`netlify/functions/mcp.mjs` imports the same `createServer()` used by the Node
+server. The MCP SDK's `createMcpHandler()` returns a web-standard `{ fetch }`
+handler, which is exactly the Netlify Functions v2 contract, so Express and the
+node adapter are not needed here.
+
+### Files added for Netlify
+
+| File | Purpose |
+|---|---|
+| `netlify.toml` | Build settings, function directory and redirects. |
+| `netlify/functions/mcp.mjs` | `/mcp` MCP Streamable HTTP endpoint. |
+| `netlify/functions/health.mjs` | `/health` probe. |
+| `netlify/providers-data.mjs` | Provider CSV embedded for the serverless bundle (generated). |
+| `scripts/build-netlify.mjs` | Build step: `tsc` output plus CSV embedding. |
+| `scripts/verify-netlify.mjs` | Drives both functions locally with web-standard `Request`/`Response`. |
+
+### Build settings (already in `netlify.toml`)
+
+- **Base directory:** `/`
+- **Build command:** `npm install --include=dev --ignore-scripts && npm run build:netlify`
+- **Publish directory:** `public`
+- **Functions directory:** `netlify/functions`
+
+The Angular SPA is *not* rebuilt on Netlify: the repository intentionally tracks
+the compiled bundle under `public/` (see `.gitignore`), so the build only
+compiles the TypeScript MCP server and embeds the provider CSV. `NPM_FLAGS`
+skips lifecycle scripts so the unrelated Angular toolchain is not installed;
+the build command re-installs with `--include=dev` so `tsc` is available.
+
+To rebuild the SPA as part of the Netlify build instead, change the command to
+`npm install --include=dev --ignore-scripts && npm run ux:build && npm run build:netlify`
+and keep `publish = "public"` (or point `publish` at
+`carekaki-ux/dist/carekaki-ux/browser` and drop the `sync:frontend` copy).
+
+### Environment variables
+
+The MCP server finds the catalogue automatically (the CSV is embedded at build
+time and written to `/tmp` per container), so no variables are required. All the
+variables in the table above still apply — set them in **Site configuration →
+Environment variables** to change them. `ALLOWED_ORIGINS` / `ALLOWED_HOSTS` are
+irrelevant on Netlify, where the CDN terminates TLS and forwards the public
+hostname.
+
+Optional Gemini inference: set `GEMINI_API_KEY` and `CAREKAKI_LLM_MODE=on` in
+the Netlify environment. The AI tools degrade to deterministic fallbacks when
+the key is absent or the quota is exhausted.
+
+### Deploying
+
+**Continuous deployment (recommended).** In the Netlify UI, connect the site to
+the `boon-boon/CareKaki` GitHub repository, branch `main`. Netlify reads
+`netlify.toml`, so no build settings need to be entered by hand.
+
+**CLI.** From the repository root:
+
+```bash
+npx netlify-cli deploy --prod --build
+```
+
+### Verify
+
+```bash
+npm run verify:netlify          # local, drives both functions directly
+curl -s https://<site>/health
+curl -s -X POST https://<site>/mcp \
+  -H 'Content-Type: application/json' \
+  -H 'Accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+curl -s -o /dev/null -w "%{http_code}\n" https://<site>/matching   # 200 (SPA fallback)
+```

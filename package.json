@@ -27,6 +27,8 @@
     "sync:frontend": "node scripts/sync-frontend.mjs",
     "ux:start": "npm --prefix carekaki-ux start",
     "build:all": "npm run build && npm run ux:build && npm run sync:frontend",
+    "build:netlify": "npm run build && node scripts/build-netlify.mjs",
+    "verify:netlify": "node scripts/verify-netlify.mjs",
     "serve:prod": "node scripts/serve-prod.mjs"
   },
   "dependencies": {
