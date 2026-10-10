@@ -1,139 +1,261 @@
 # CareKaki
 
-CareKaki is an AI-assisted respite-care operations platform for Malaysia, combining:
-1. **CareKaki MCP Server**: A standalone Model Context Protocol server exposing 9 care-matching, verification, and optional Gemini AI tools over `stdio` and `Streamable HTTP`.
-2. **CareKaki Pro (Angular 22 UX)**: A modern operations dashboard for intake, caregiver rostering, AI matching, quotations, and job order tracking.
+**AI-assisted caregiver matching and respite-care operations for Malaysia**
 
----
+[**🌐 Open the live CareKaki demo**](https://carekaki.netlify.app/dashboard) · [Deployment guide](DEPLOY.md) · [Source code](https://github.com/boon-boon/CareKaki)
 
-## Architecture Overview
+> **Demo disclaimer:** CareKaki currently uses fictional provider data. It is an operations prototype, not a live care booking service. Recommendations, quotations, job orders, and contact previews do not reserve a caregiver or create a real-world appointment.
 
-```
-                      ┌──────────────────────────────────────────────┐
-                      │    CareKaki Pro (Angular 22 Web App)         │
-                      │    http://127.0.0.1:4200                     │
-                      │  • Intake Form (NLP extraction)              │
-                      │  • Caregiver Roster & Catalogue              │
-                      │  • Matching & Compare Drawer                 │
-                      │  • Quotations (SST 8% compliant)             │
-                      │  • Job Orders & Clock-In Tracker             │
-                      └──────────────────────┬───────────────────────┘
-                                             │ HTTP / Streamable MCP
-                                             ▼
-                      ┌──────────────────────────────────────────────┐
-                      │    CareKaki MCP Server                       │
-                      │    http://127.0.0.1:3000/mcp                 │
-                      │  • 6 Analytical Tools                        │
-                      │  • Clarification State Machine               │
-                      │  • Multi-factor Ranking Algorithm            │
-                      └──────────────────────┬───────────────────────┘
-                                             │
-                                             ▼
-                      ┌──────────────────────────────────────────────┐
-                      │    carekaki_providers_demo.csv               │
-                      │    20 Fictional Malaysian Care Providers     │
-                      └──────────────────────────────────────────────┘
-```
+## Overview
 
----
+CareKaki brings together two components:
 
-## MCP Server Tools
+- **CareKaki Pro:** An Angular 22 operations dashboard for intake, caregiver discovery, matching, pricing, quotations, and simulated job orders.
+- **CareKaki MCP Server:** A TypeScript/Node.js Model Context Protocol (MCP) server with nine tools for provider data, validation, deterministic matching, explanations, and optional Google Gemini assistance.
+
+The project explores how a care-operations assistant can guide intake, validate requirements, compare candidates, and prepare a human-reviewed handoff without allowing AI output to bypass eligibility or confirmation rules.
+
+## Live demo
+
+**Website:** https://carekaki.netlify.app/dashboard
+
+The Netlify deployment hosts the Angular application and exposes serverless MCP and health endpoints:
+
+| Path | Purpose |
+| --- | --- |
+| [`/dashboard`](https://carekaki.netlify.app/dashboard) | Main operations dashboard |
+| [`/intake`](https://carekaki.netlify.app/intake) | New care request and clarification |
+| [`/matching`](https://carekaki.netlify.app/matching) | Provider matching and comparison |
+| [`/roster`](https://carekaki.netlify.app/roster) | Caregiver catalogue |
+| [`/quotations`](https://carekaki.netlify.app/quotations) | Demo quotation |
+| [`/job-orders`](https://carekaki.netlify.app/job-orders) | Simulated operations handoff |
+| [`/pricing`](https://carekaki.netlify.app/pricing) | Pricing reference view |
+| [`/health`](https://carekaki.netlify.app/health) | Service health endpoint |
+| `/mcp` | Streamable HTTP MCP endpoint (for MCP clients) |
+
+The deployment is configured in [`netlify.toml`](netlify.toml), with Netlify Functions under [`netlify/functions/`](netlify/functions/). The live service may depend on hosting status, network connectivity, and optional API credentials.
+
+## Main features
+
+| Feature | Details |
+| --- | --- |
+| **Guided care intake** | Structured or free-text requests, clarification prompts, input validation, and explicit user confirmation |
+| **Recurring schedules** | `weekday` means Monday–Friday; `weekend` means Saturday–Sunday; explicit individual days are also supported |
+| **Caregiver matching** | Hard eligibility checks for location, all required services, verification, availability, and total budget |
+| **Ranked recommendations** | Eligible candidates scored by rating (50%), affordability (35%), and language preference (15%) |
+| **Top-five alternatives** | When there are no fully eligible providers, show up to five *review-only* candidates with failed checks and date coverage |
+| **AI assistance** | Optional Gemini interpretation, recommendation ranking, and explanations; hard checks remain deterministic |
+| **In-progress session** | Retains intake and selected-provider context across routes and refreshes in the same browser tab |
+| **Quotations** | Uses the selected MCP provider's hourly rate for the live quote; calculates hours, scheduled visits, and demo tax |
+| **Operations dashboard** | Caregiver roster, pricing, job-order preview, and demonstration messaging views |
+
+### Matching rules
+
+An **eligible match** must pass all five checks:
+
+1. **Location:** provider's city must match the request.
+2. **Services:** provider must offer every required service.
+3. **Verification:** provider's demo `verified` flag must be true.
+4. **Availability:** the requested time interval must be covered for every requested occurrence.
+5. **Budget:** total estimated care cost must not exceed the supplied **total** MYR budget.
+
+**Estimated matching cost = hourly rate × duration per visit × number of visits.** A preferred language affects scoring, but is not a hard eligibility requirement.
+
+If no provider passes every check, the server can return the top five alternatives. They are **not bookable or confirmed**: some may fail important requirements, including verification or availability. The interface exposes the failed checks for human review instead of silently presenting these providers as valid matches.
+
+### Scheduling and validation
+
+- Recurring weekday/weekend requests expand to a **maximum of 12 upcoming occurrences** unless explicit dates are provided.
+- The selected first date must fall on a requested scheduled day.
+- Validation uses **Asia/Kuala_Lumpur** local time and rejects dates/times in the past.
+- An individual visit cannot extend past midnight.
+- The matching screen can check the entire schedule or inspect an individual date.
+- The included fictional CSV has limited availability records; a multi-date schedule may produce no complete matches even when individual dates have candidates.
+
+### Quotation and workflow state
+
+The application retains one unfinished demo booking using an Angular session service and browser `sessionStorage`. Intake selections can carry forward to matching, quotations, and job orders without re-entering the request; this is not persistent production booking storage.
+
+For an active MCP-selected provider, the quotation screen requests the provider record through `carekaki_get_provider` and uses its `hourly_rate` rather than replacing it with a fixed provider-specific price. It then calculates the line items from the selected services, hours, and dates, including configured demo SST (currently 8%). If the quotation screen is opened directly without a session, it can display reference/sample data instead.
+
+**Human confirmation remains required:** selecting or comparing a caregiver in this prototype does not automatically confirm a real assignment.
+
+## Architecture
+
+~~~text
+              Browser / Angular 22 application
+     Dashboard • Intake • Roster • Matching • Quotes
+                           |
+               JSON-RPC / Streamable HTTP
+                           |
+                           v
+               CareKaki MCP Server (Node.js)
+             ├─ 6 matching/validation tools
+             ├─ 3 optional Gemini AI tools
+             ├─ deterministic eligibility and ranking
+             └─ fictional provider CSV catalogue
+~~~
+
+**Development:** Angular at `http://127.0.0.1:4200` proxies `/mcp` and `/health` to the MCP server at `http://127.0.0.1:3000`.
+
+**Node deployment:** one Node server can host the built Angular SPA at `/` plus MCP at `/mcp` and a health probe at `/health`.
+
+**Netlify deployment:** the static SPA is served by Netlify's CDN; Netlify Functions provide `/mcp` and `/health`. See [DEPLOY.md](DEPLOY.md).
+
+## MCP tool catalogue
 
 | Tool | Purpose |
-| :--- | :--- |
-| `carekaki_get_search_options` | Discovers available Malaysian locations, service codes, dates, and budget/duration presets. |
-| `carekaki_validate_request` | Validates intake parameters, generates clarification questions for missing data, and requests user confirmation. |
-| `carekaki_search_providers` | Filters by eligibility (location, all requested services, verification, time window, budget) and ranks matches (Rating 50%, Affordability 35%, Language 15%). |
-| `carekaki_list_providers` | Browses the demo catalogue with optional filters (city, service, rate, date). |
-| `carekaki_get_provider` | Retrieves full profile details for a provider by ID (`CK001` - `CK020`). |
-| `carekaki_explain_matching` | Returns a 5-check diagnostic explanation for why each provider passed or failed. |
-| `carekaki_ai_interpret_request` | Uses Gemini to interpret a free-text care intake as a structured, unconfirmed patch; deterministic fallback when AI is disabled. |
-| `carekaki_ai_recommend_providers` | Performs deterministic eligibility filtering first, then uses Gemini to rank the eligible provider pool or review-only alternatives. |
-| `carekaki_ai_explain_recommendation` | Explains assessed provider suitability, while preserving the original eligibility boundaries. |
+| --- | --- |
+| `carekaki_get_search_options` | Discover locations, services, supported dates, languages, and presets |
+| `carekaki_validate_request` | Validate a partial request, ask for clarification, and request explicit confirmation |
+| `carekaki_search_providers` | Apply five eligibility checks, score matching providers, and return alternatives if needed |
+| `carekaki_list_providers` | Browse or filter the demo caregiver catalogue |
+| `carekaki_get_provider` | Fetch a full provider record and its demo hourly rate |
+| `carekaki_explain_matching` | Report provider-specific pass/fail diagnostics |
+| `carekaki_ai_interpret_request` | Use optional Gemini inference to interpret free text into an **unconfirmed** draft |
+| `carekaki_ai_recommend_providers` | Optionally rank candidates with Gemini, preserving deterministic eligibility |
+| `carekaki_ai_explain_recommendation` | Explain or compare recommendations without overriding the eligibility rules |
 
-### Optional Gemini inference
+All tools are exposed by the MCP server. The six non-AI catalogue/matching tools work without a Gemini API key; AI-related functionality is optional.
 
-Gemini inference is disabled by default. Set `GEMINI_API_KEY` and `CAREKAKI_LLM_MODE=on` in the server's ignored `.env` file or deployment secret environment, then restart the MCP service. The default model is `gemini-2.5-flash`; override with `GEMINI_MODEL` if desired.
+## Get started locally
 
-- `CAREKAKI_LLM_MODE=off`: rule-based extraction and ranking, no Gemini calls.
-- `CAREKAKI_LLM_MODE=shadow`: call Gemini for comparison but keep deterministic outputs.
-- `CAREKAKI_LLM_MODE=on`: Angular uses Gemini for free-text intake and for ranking providers after server-side eligibility checks.
+### Requirements
 
-Never put the key in Angular, `public/`, browser storage, logs or Git. This unauthenticated fictional-data demo needs authentication and per-user rate limiting **before** publicly enabling a paid AI endpoint. Live Gemini inference requires a valid external key, network access and available API quota.
+- **Node.js 22+** (Node 22 or 24 recommended)
+- npm
+- Optional Google AI Studio API key, configured only on the server
 
-The existing CSV contains only one availability window per record. Multi-date weekday or weekend requests therefore frequently produce no fully eligible providers, independently of AI quality. Alternatives are always review-only, and the user must confirm requirements and provider selection; no booking is made automatically.
+### Install and build
 
----
-
-## Getting Started
-
-### Prerequisites
-- Node.js `22.x` or `24.x`
-- npm `10.x` or later
-
-### Installation
-
-```bash
-# Clone the repository
+~~~bash
 git clone https://github.com/boon-boon/CareKaki.git
 cd CareKaki
-
-# Install MCP server dependencies
 npm ci
-
-# Install Angular UX dependencies
-cd carekaki-ux && npm ci && cd ..
-```
-
-### Running the Services
-
-```bash
-# 1. Start the MCP Server (Streamable HTTP on port 3000)
-npm run http
-
-# 2. In a separate terminal, start the Angular UX (port 4200)
-npm run ux:start
-
-# 3. Open http://127.0.0.1:4200 in your browser
-```
-
-### Building & Verification
-
-```bash
-# Build the TypeScript MCP server
 npm run build
+~~~
 
-# Run automated domain & transport smoke tests (all 9 checks)
-npm run smoke
+The root install script installs the Angular dependencies. If install scripts were disabled, run `npm --prefix carekaki-ux ci` separately.
 
-# Build the Angular UX for production
-npm run ux:build
-```
+### Run the development services
 
----
+In one terminal (MCP server):
 
-## MCP Client Configuration (stdio)
+~~~bash
+npm run http
+~~~
 
-To connect AI assistants (e.g. Claude Desktop, Cursor, WorkBuddy) via `stdio`:
+In another terminal (Angular frontend):
 
-```json
+~~~bash
+npm run ux:start
+~~~
+
+Open **http://127.0.0.1:4200**. The server health endpoint is **http://127.0.0.1:3000/health**.
+
+### Try a demonstration request
+
+1. Open **New Intake** and enter the care location, required services, date, time, hours, and **total budget**.
+2. Answer any missing-field prompts and confirm the complete requirements.
+3. View eligible results or inspect the diagnostics for review-only alternatives.
+4. Confirm an eligible caregiver and examine the demo quotation and job-order screens.
+
+Because this project uses fictional provider records, **no real caregiver is contacted or booked**.
+
+## Optional Gemini configuration
+
+Copy [.env.example](.env.example) to `.env` in the project root. The latter should remain untracked.
+
+~~~dotenv
+GEMINI_API_KEY=your_server_side_key
+CAREKAKI_LLM_MODE=on
+GEMINI_MODEL=gemini-2.5-flash
+~~~
+
+| `CAREKAKI_LLM_MODE` | Behavior |
+| --- | --- |
+| `off` (default) | Deterministic workflow; no live Gemini inference |
+| `shadow` | Calls Gemini for comparison but preserves deterministic results |
+| `on` | Enables Gemini-assisted intake and eligibility-safe provider ranking |
+
+Keep credentials in server-side environment variables or hosting secrets. **Do not commit API keys** or place them in Angular, `public/`, browser storage, or frontend code.
+
+## External MCP clients
+
+After running `npm run build`, clients supporting `stdio` may use a configuration similar to:
+
+~~~json
 {
   "mcpServers": {
     "carekaki": {
       "command": "node",
-      "args": ["<PATH_TO_CAREKAKI>/dist/index.js"],
+      "args": ["<ABSOLUTE_PATH_TO_REPO>/dist/index.js"],
       "env": {
-        "CAREKAKI_PROVIDERS_CSV": "<PATH_TO_CAREKAKI>/carekaki_providers_demo.csv"
+        "CAREKAKI_PROVIDERS_CSV": "<ABSOLUTE_PATH_TO_REPO>/carekaki_providers_demo.csv"
       }
     }
   }
 }
-```
+~~~
+
+Replace the placeholder paths with your local absolute paths. HTTP clients can instead connect to `http://127.0.0.1:3000/mcp` after starting `npm run http`.
+
+MCP calls are stateless: the integrating client or application needs to preserve draft fields, show follow-up questions, collect consent, and send the accumulated confirmed request back to the tools.
+
+## Build, test, and deploy
+
+| Command | What it does |
+| --- | --- |
+| `npm run build` | Compile the TypeScript MCP server |
+| `npm run typecheck` | Type-check the MCP server |
+| `npm run smoke` | Run compiled domain/transport smoke tests (build first) |
+| `npm run ux:build` | Compile the Angular frontend |
+| `npm run build:all` | Build the backend/frontend and sync assets |
+| `npm run serve:prod` | Serve SPA and MCP on a single Node port |
+| `npm run build:netlify` | Prepare TypeScript and provider data for Netlify Functions |
+| `npm run verify:netlify` | Locally verify Netlify Functions |
+
+For one-port Node hosting:
+
+~~~bash
+npm run build:all
+npm run serve:prod
+~~~
+
+For Netlify deployment, consult [DEPLOY.md](DEPLOY.md) and [netlify.toml](netlify.toml). The repository tracks a prebuilt frontend in `public/`, so changing Angular source requires building and syncing it before deploying. The Netlify demo is available at **https://carekaki.netlify.app/dashboard**.
+
+## Repository structure
+
+~~~text
+CareKaki/
+├── README.md
+├── DEPLOY.md
+├── .env.example
+├── carekaki_providers_demo.csv
+├── src/
+│   ├── server.ts           MCP tool registrations
+│   ├── validate.ts         Intake and recurrence validation
+│   ├── match.ts            Eligibility and ranking
+│   ├── ai/gemini.ts        Optional Gemini integration
+│   ├── http.ts             HTTP transport and SPA hosting
+│   └── smoke.ts            Domain/transport tests
+├── carekaki-ux/            Angular application
+│   └── src/app/
+│       ├── core/           Models and MCP/session services
+│       └── features/       User-facing operation screens
+├── netlify/                Netlify Functions and bundled provider data
+├── netlify.toml
+├── scripts/                Build and deployment helpers
+└── public/                 Prebuilt frontend assets
+~~~
+
+## Security and limitations
+
+This repository is a **fictional-data prototype**. Provider verification flags do not replace independent credential checks, and catalogue availability does not represent live caregiver schedules. No real booking, payment processing, or provider notification is performed automatically.
+
+Before using real care-recipient information or deploying as a public service, add authentication, authorization, privacy controls, request rate limiting, verified provider integrations, real-time availability, secure HTTPS, auditing, and appropriate human approval. In particular, avoid enabling a paid AI endpoint on an unauthenticated public demo.
 
 ---
 
-## Security & Demo Notice
+**CareKaki — a human-reviewed AI-assisted care-operations prototype.** [Launch the demo](https://carekaki.netlify.app/dashboard) · [Deployment instructions](DEPLOY.md)
 
-- **Fictional Demo Data**: All 20 caregiver records are synthetic data for demonstration purposes.
-- **Local Loopback Only**: The default HTTP transport binds exclusively to `127.0.0.1` / `localhost`.
-- **Production Boundary**: A real-world production deployment requires external authentication, authorization, encrypted HTTPS endpoints, and real-time calendar synchronization.
