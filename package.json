@@ -24,8 +24,9 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "ux:build": "npm --prefix carekaki-ux run build",
+    "sync:frontend": "node scripts/sync-frontend.mjs",
     "ux:start": "npm --prefix carekaki-ux start",
-    "build:all": "npm run build && npm run ux:build",
+    "build:all": "npm run build && npm run ux:build && npm run sync:frontend",
     "serve:prod": "node scripts/serve-prod.mjs"
   },
   "dependencies": {

@@ -31,9 +31,10 @@ if (!existsSync(serverEntry)) {
   console.error('CareKaki: dist/http.js not found. Run "npm run build" first.');
   process.exit(1);
 }
-const frontendEntry = path.join(root, "carekaki-ux", "dist", "carekaki-ux", "browser", "index.html");
-if (!existsSync(frontendEntry)) {
-  console.error('CareKaki: Angular build not found. Run "npm run ux:build" (needs Node >= 22.22.3 / 24.15.0) to serve the UI.');
+const frontendEntry = [path.join(root, "public", "index.html"), path.join(root, "carekaki-ux", "dist", "carekaki-ux", "browser", "index.html")]
+  .find(candidate => existsSync(candidate));
+if (!frontendEntry) {
+  console.error('CareKaki: Angular build not found in public/ or carekaki-ux/dist. Run "npm run ux:build && npm run sync:frontend".');
 }
 
 const { startHttpServer } = await import(pathToFileURL(serverEntry).href);

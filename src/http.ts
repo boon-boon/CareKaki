@@ -11,8 +11,13 @@ import { loadProviders } from "./providers.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** Built Angular app (SPA) served on the same port as the MCP API. */
-const FRONTEND_DIR = path.resolve(__dirname, "../carekaki-ux/dist/carekaki-ux/browser");
+/**
+ * Built Angular app (SPA) served on the same port as the MCP API.
+ * Prefer the committed `public/` bundle (survives uploads that strip build
+ * output such as dist/), falling back to the raw Angular output for local dev.
+ */
+const FRONTEND_DIR = [path.resolve(__dirname, "../public"), path.resolve(__dirname, "../carekaki-ux/dist/carekaki-ux/browser")]
+  .find(dir => existsSync(path.join(dir, "index.html"))) ?? path.resolve(__dirname, "../public");
 
 /**
  * Host/Origin policy. Local dev binds to loopback only; a hosted single-port
