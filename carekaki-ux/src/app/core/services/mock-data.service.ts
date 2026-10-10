@@ -1,8 +1,9 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import {
   Caregiver,
   PricingMatrix,
   IntakeResult,
+  IntakeEntities,
   MatchedCandidate,
   HandoffPayload,
   Quotation,
@@ -14,6 +15,10 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class MockDataService {
+  /* ---------- Cross-view handoff state (set by Intake, read by Matching) ---------- */
+  readonly activeIntake = signal<IntakeEntities | null>(null);
+  readonly activeScheduleDates = signal<string[]>([]);
+
   /* ---------- Staff Roster (12 caregivers from spec) ---------- */
   readonly caregivers: Caregiver[] = [
     { caregiver_id: 'CG-001', name: 'Siti Nurhaliza binti Ibrahim', certifications: 'Nursing|CPR|Dementia Care', primary_zone: 'Kuala Lumpur', hourly_rate_myr: 30.00, availability_status: 'available' },

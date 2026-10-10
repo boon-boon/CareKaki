@@ -170,6 +170,150 @@ export function extractCareTiming(text: string, defaultYear = 2026) {
   return { date, start, end, duration, missing: [...new Set(missing)] };
 }
 
+/* ============================================================
+   Recurring weekly schedule parsing
+   Supports inputs like:
+   "Saturdays and Sundays, 9am to 5pm, starting 1 November"
+   "Monday to Friday, 8am to 4pm, starting next Monday"
+   "every Wednesday at 10:00 for 2 hours"
+   ============================================================ */
+
+const WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_WORDS: { name: string; full: string; abbr: string; js: number }[] = [
+  { name: 'Mon', full: 'monday', abbr: 'mon', js: 1 },
+  { name: 'Tue', full: 'tuesday', abbr: 'tue', js: 2 },
+  { name: 'Wed', full: 'wednesday', abbr: 'wed', js: 3 },
+  { name: 'Thu', full: 'thursday', abbr: 'thu', js: 4 },
+  { name: 'Fri', full: 'friday', abbr: 'fri', js: 5 },
+  { name: 'Sat', full: 'saturday', abbr: 'sat', js: 6 },
+  { name: 'Sun', full: 'sunday', abbr: 'sun', js: 0 },
+];
+
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear().toString().padStart(4, '0')}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+}
+
+function isoAddDays(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function jsDayOf(iso: string): number {
+  return new Date(`${iso}T00:00:00Z`).getUTCDay();
+}
+
+function wdNameOf(iso: string): string {
+  const js = jsDayOf(iso);
+  return WD[(js + 6) % 7];
+}
+
+/** Detect which weekly days a phrase refers to (canonical Mon..Sun order). */
+function detectScheduleDays(text: string): string[] {
+  const t = text.toLowerCase();
+  if (/weekday|monday\s*(?:to|-|–|through)\s*friday|mon\s*-?\s*fri/.test(t)) {
+    return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  }
+  if (/\bweekend\b/.test(t)) {
+    return ['Sat', 'Sun'];
+  }
+  if (/\bdaily\b|every\s*day|all\s*days|7\s*days|seven\s*days/.test(t)) {
+    return [...WD];
+  }
+  const found = new Set<string>();
+  for (const d of DAY_WORDS) {
+    if (new RegExp(`\\b${d.full}s?\\b|\\b${d.abbr}\\b`).test(t)) found.add(d.name);
+  }
+  return WD.filter(w => found.has(w));
+}
+
+/** Decide whether the phrase means a repeating weekly pattern vs a single occurrence. */
+function isRecurringSchedule(text: string, days: string[]): boolean {
+  const t = text.toLowerCase();
+  if (days.length >= 2) return true;
+  if (/\bweekend\b|weekday|\bdaily\b|every\s*day/.test(t)) return true;
+  if (/\b(mondays|tuesdays|wednesdays|thursdays|fridays|saturdays|sundays)\b/.test(t)) return true;
+  if (/\bevery\s+(mon|tue|wed|thu|fri|sat|sun)/.test(t)) return true;
+  return false;
+}
+
+/** Expand a recurring set of weekdays into concrete dates starting at/after `anchor`. */
+function expandScheduleDates(anchor: string, days: string[], max = 12, horizonDays = 90): string[] {
+  const wanted = new Set(days.map(n => DAY_WORDS.find(d => d.name === n)!.js));
+  const out: string[] = [];
+  for (let i = 0; i <= horizonDays && out.length < max; i++) {
+    const iso = isoAddDays(anchor, i);
+    if (wanted.has(jsDayOf(iso))) out.push(iso);
+  }
+  return out;
+}
+
+/** First occurrence of a weekday strictly after `from` (for "next <day>") or on/after (for "this <day>"). */
+function nextOccurrence(js: number, from: string, inclusive: boolean): string {
+  for (let i = inclusive ? 0 : 1; i <= 7; i++) {
+    const iso = isoAddDays(from, i);
+    if (jsDayOf(iso) === js) return iso;
+  }
+  return from;
+}
+
+export interface ParsedCareSchedule {
+  days: string[];
+  recurring: boolean;
+  anchor: string;
+  concreteDates: string[];
+  startDate: string;
+  start: string;
+  end: string;
+  duration: number;
+  hasTime: boolean;
+}
+
+/** Parse a free-text care schedule (recurring days + start date + time range). */
+export function parseCareSchedule(text: string): ParsedCareSchedule {
+  const timing = extractCareTiming(text);
+  const today = todayIso();
+  const days = detectScheduleDays(text);
+  const recurring = isRecurringSchedule(text, days);
+
+  // Resolve an anchor start date: explicit date first, then a relative weekday phrase.
+  let anchor = timing.date;
+  if (!anchor) {
+    const rel = text.match(/\b(next|this|coming|upcoming)?\s*(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i);
+    if (rel) {
+      const d = DAY_WORDS.find(x => x.full === rel[2].toLowerCase())!;
+      const modifier = (rel[1] || '').toLowerCase();
+      const inclusive = modifier !== 'next' && modifier !== 'coming' && modifier !== 'upcoming';
+      anchor = nextOccurrence(d.js, today, inclusive);
+    }
+  }
+
+  let concreteDates: string[] = [];
+  if (recurring && days.length) {
+    concreteDates = expandScheduleDates(anchor || today, days);
+  } else if (anchor) {
+    concreteDates = [anchor];
+  } else if (days.length === 1) {
+    const d = DAY_WORDS.find(x => x.name === days[0])!;
+    concreteDates = [nextOccurrence(d.js, today, false)];
+    anchor = concreteDates[0];
+  }
+
+  const startDate = concreteDates[0] || anchor || '';
+  return {
+    days,
+    recurring,
+    anchor,
+    concreteDates,
+    startDate,
+    start: timing.start,
+    end: timing.end,
+    duration: timing.duration,
+    hasTime: !!timing.start,
+  };
+}
+
 @Component({
   selector: 'app-intake-form',
   standalone: true,
@@ -194,6 +338,7 @@ export class IntakeForm {
   readonly mcpConfirmed = signal(false);
   readonly mcpSearching = signal(false);
   readonly clarificationAnswer = signal('');
+  readonly schedulePreview = signal<(ParsedCareSchedule & { raw: string }) | null>(null);
 
   readonly examples: ExamplePrompt[] = [
     {
@@ -237,6 +382,7 @@ export class IntakeForm {
     this.missingSlots.set([]);
     this.mcpValidation.set(null);
     this.mcpConfirmed.set(false);
+    this.schedulePreview.set(null);
     this.parseIntake();
   }
 
@@ -247,6 +393,7 @@ export class IntakeForm {
     this.intakeId.set('');
     this.mcpValidation.set(null);
     this.mcpConfirmed.set(false);
+    this.schedulePreview.set(null);
   }
 
   /** Entity extraction from natural language */
@@ -321,7 +468,22 @@ export class IntakeForm {
     } else if (field === 'duration_hours') {
       p.shift_hours.duration_hours = Number(value);
     } else if (field === 'date') {
-      p.start_date = String(value);
+      const raw = String(value);
+      const s = parseCareSchedule(raw);
+      if (s.startDate) {
+        p.start_date = s.startDate;
+        p.schedule_days = s.recurring ? s.days : [];
+        p.schedule_dates = s.recurring && s.concreteDates.length > 1 ? s.concreteDates : [];
+        p.shift_hours.days = s.days.length ? s.days : [wdNameOf(s.startDate)];
+        if (s.start) p.shift_hours.start = s.start;
+        if (s.duration > 0) p.shift_hours.duration_hours = s.duration;
+        // Resolving a schedule can also fill time/duration from the same phrase.
+        this.missingSlots.update(f => f.filter(slot =>
+          !(slot === 'start_time' && p.shift_hours.start) &&
+          !(slot === 'duration_hours' && p.shift_hours.duration_hours > 0)));
+      } else {
+        p.start_date = raw;
+      }
     } else if (field === 'max_budget') {
       p.max_budget = Number(value);
     } else if (field === 'required_services') {
@@ -331,13 +493,54 @@ export class IntakeForm {
     this.missingSlots.update(fields => fields.filter(slot => slot !== field));
     this.mcpConfirmed.set(false);
     this.parsed.set({ ...p, shift_hours: { ...p.shift_hours } });
+    this.schedulePreview.set(null);
     await this.validateWithMcp();
+  }
+
+  /** Parse the free-text clarification answer into a previewable weekly schedule. */
+  previewSchedule() {
+    const raw = this.clarificationAnswer().trim();
+    if (!raw) { this.schedulePreview.set(null); return; }
+    const s = parseCareSchedule(raw);
+    this.schedulePreview.set({ ...s, raw });
+  }
+
+  /** Apply the previewed schedule to the intake (fills date, days, time, duration). */
+  applySchedule() {
+    const pv = this.schedulePreview();
+    if (!pv || !pv.startDate) return;
+    this.selectMcpChoice('date', pv.raw);
+  }
+
+  /** Pick one concrete date from the expanded recurring schedule as the active search date. */
+  chooseScheduleDate(iso: string) {
+    const p = this.parsed();
+    if (!p) return;
+    p.start_date = iso;
+    this.missingSlots.update(f => f.filter(slot => slot !== 'date'));
+    this.mcpConfirmed.set(false);
+    this.parsed.set({ ...p, shift_hours: { ...p.shift_hours } });
+    this.validateWithMcp();
+  }
+
+  /** Clear the recurring schedule and keep only the single active date. */
+  clearSchedule() {
+    const p = this.parsed();
+    if (!p) return;
+    p.schedule_days = [];
+    p.schedule_dates = [];
+    this.parsed.set({ ...p });
   }
 
   async submitClarification(field: string) {
     const value = this.clarificationAnswer().trim();
     if (!value) return;
-    await this.selectMcpChoice(field, field === 'max_budget' || field === 'duration_hours' ? Number(value) : value);
+    if (field === 'date') {
+      // Date accepts natural language ("1 November", "Saturdays and Sundays ... starting 1 Nov").
+      await this.selectMcpChoice('date', value);
+    } else {
+      await this.selectMcpChoice(field, field === 'max_budget' || field === 'duration_hours' ? Number(value) : value);
+    }
     this.clarificationAnswer.set('');
   }
 
@@ -347,6 +550,11 @@ export class IntakeForm {
   async confirmAndSearchMcp() {
     this.mcpConfirmed.set(true);
     await this.validateWithMcp();
+    const p = this.parsed();
+    if (p) {
+      this.data.activeIntake.set({ ...p, shift_hours: { ...p.shift_hours } });
+      this.data.activeScheduleDates.set(p.schedule_dates && p.schedule_dates.length > 1 ? p.schedule_dates : []);
+    }
     this.router.navigate(['/matching']);
   }
 
@@ -382,9 +590,14 @@ export class IntakeForm {
     }
     if (!zone) missing.push('location');
 
-    const timing = extractCareTiming(text);
-    const { start, end, duration, date: startDate } = timing;
-    missing.push(...timing.missing);
+    const sched = parseCareSchedule(text);
+    const start = sched.start;
+    const end = sched.end;
+    const duration = sched.duration;
+    const startDate = sched.startDate;
+    if (!startDate) missing.push('date');
+    if (!start) missing.push('start_time');
+    if (!Number.isFinite(duration) || duration <= 0) missing.push('duration_hours');
     const budgetMatch = text.match(/\b(?:rm|myr)\s*(\d+(?:\.\d+)?)\b/i);
     const maxBudget = budgetMatch ? Number(budgetMatch[1]) : undefined;
     if (!maxBudget || maxBudget <= 0) missing.push('max_budget');
@@ -395,21 +608,10 @@ export class IntakeForm {
     if (/\bdementia\b/i.test(text)) requiredServices.push('dementia_care');
     if (!requiredServices.length) missing.push('required_services');
 
-    // --- Days ---
-    const days: string[] = [];
-    if (/monday to friday|mon(day)?\s*-\s*fri(day)?|weekdays/i.test(text)) {
-      days.push('Mon', 'Tue', 'Wed', 'Thu', 'Fri');
-    } else if (/saturday.*sunday|weekend/i.test(text)) {
-      days.push('Sat', 'Sun');
-    } else if (/\bdaily\b|every day/i.test(text)) {
-      days.push('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun');
-    } else {
-      days.push('Sat');
-    }
-
-    if (startDate && days.length === 1 && days[0] === 'Sat') {
-      days[0] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][new Date(`${startDate}T00:00:00Z`).getUTCDay()];
-    }
+    // --- Days (recurring weekly pattern, or the single weekday of a one-off date) ---
+    const days = sched.days.length ? sched.days : (startDate ? [wdNameOf(startDate)] : []);
+    const scheduleDays = sched.recurring ? sched.days : [];
+    const scheduleDates = sched.recurring && sched.concreteDates.length > 1 ? sched.concreteDates : [];
 
     // --- Patient conditions ---
     let conditions = '';
@@ -432,6 +634,8 @@ export class IntakeForm {
       estimated_weeks: null,
       max_budget: maxBudget,
       required_services: requiredServices,
+      schedule_days: scheduleDays,
+      schedule_dates: scheduleDates,
     };
 
     return { entities, missing };
@@ -446,5 +650,22 @@ export class IntakeForm {
     if (!iso) return '';
     const d = new Date(iso + 'T00:00:00');
     return d.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  /** Compact chip label, e.g. "Sun 1 Nov" */
+  shortDate(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  /** Human-readable weekly day list, e.g. "Sat & Sun" or "Mon–Fri" */
+  daysLabel(days: string[]): string {
+    if (!days || !days.length) return '';
+    const key = days.join(',');
+    if (key === 'Mon,Tue,Wed,Thu,Fri') return 'Mon–Fri (weekdays)';
+    if (key === 'Mon,Tue,Wed,Thu,Fri,Sat,Sun') return 'Every day';
+    if (key === 'Sat,Sun') return 'Sat & Sun (weekends)';
+    return days.join(', ');
   }
 }

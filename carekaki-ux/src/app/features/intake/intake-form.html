@@ -204,16 +204,34 @@
                 <div class="entity-value">{{ p.patient_conditions }}</div>
               </div>
 
-              <!-- Start date -->
-              <div class="entity-item">
+              <!-- Start date / recurring schedule -->
+              <div class="entity-item entity-item-wide">
                 <div class="entity-label">
                   <app-icon name="calendar" [size]="15"/>
                   Care Date
+                  @if (p.schedule_days && p.schedule_days.length) {
+                    <span class="badge badge-teal" style="margin-left:6px;">Recurring: {{ daysLabel(p.schedule_days) }}</span>
+                  }
                 </div>
                 <div class="entity-value">
                   {{ formatDate(p.start_date) || 'Not specified' }}
-                  <span class="entity-meta">ISO: {{ p.start_date || 'None' }}</span>
+                  <span class="entity-meta">Active search date &middot; ISO: {{ p.start_date || 'None' }}</span>
                 </div>
+                @if (p.schedule_dates && p.schedule_dates.length > 1) {
+                  <div class="schedule-chips">
+                    <span class="schedule-chips-label">Upcoming occurrences — pick one:</span>
+                    <div class="schedule-chip-row">
+                      @for (d of p.schedule_dates; track d) {
+                        <button
+                          class="schedule-chip"
+                          [class.active]="d === p.start_date"
+                          (click)="chooseScheduleDate(d)"
+                        >{{ shortDate(d) }}</button>
+                      }
+                    </div>
+                    <button class="link-btn" (click)="clearSchedule()">Remove recurrence (keep single date)</button>
+                  </div>
+                }
               </div>
 
               <!-- Budget -->
@@ -269,12 +287,79 @@
                         </button>
                       }
                     </div>
+                  } @else if (val.question.field === 'date') {
+                    <!-- Rich schedule input: single date OR recurring weekly pattern -->
+                    <div class="schedule-input-box">
+                      <input
+                        class="input"
+                        placeholder="e.g. 2026-10-17 &middot; 1 November &middot; Saturdays and Sundays, 9am to 5pm, starting 1 November"
+                        [ngModel]="clarificationAnswer()"
+                        (ngModelChange)="clarificationAnswer.set($event)"
+                        (keyup.enter)="submitClarification(val.question.field)"
+                      />
+                      <div class="schedule-input-actions">
+                        <button class="btn btn-outline btn-sm" (click)="previewSchedule()" [disabled]="!clarificationAnswer().trim()">
+                          <app-icon name="search" [size]="14"/>
+                          <span>Preview schedule</span>
+                        </button>
+                        <button class="btn btn-primary btn-sm" (click)="submitClarification(val.question.field)" [disabled]="!clarificationAnswer().trim()">
+                          <app-icon name="check" [size]="14"/>
+                          <span>Apply</span>
+                        </button>
+                      </div>
+                      <p class="schedule-input-hint">
+                        Tip: you can type a repeating pattern like <em>“Saturdays and Sundays, 9am to 5pm, starting 1 November”</em> —
+                        CareKaki expands it into concrete dates and sets the shift time automatically.
+                      </p>
+
+                      @if (schedulePreview(); as sp) {
+                        <div class="schedule-preview">
+                          @if (!sp.startDate) {
+                            <div class="preview-warn">
+                              <app-icon name="alert" [size]="16"/>
+                              <span>Couldn’t find a start date. Try adding “starting 1 November” or a date like 2026-11-01.</span>
+                            </div>
+                          } @else {
+                            <div class="preview-grid">
+                              <div class="preview-cell">
+                                <span class="preview-k">Pattern</span>
+                                <span class="preview-v">{{ sp.recurring ? daysLabel(sp.days) : 'One-off' }}</span>
+                              </div>
+                              <div class="preview-cell">
+                                <span class="preview-k">Start date</span>
+                                <span class="preview-v">{{ formatDate(sp.startDate) }}</span>
+                              </div>
+                              @if (sp.hasTime) {
+                                <div class="preview-cell">
+                                  <span class="preview-k">Shift</span>
+                                  <span class="preview-v">{{ sp.start }} – {{ sp.end }} ({{ sp.duration }}h)</span>
+                                </div>
+                              }
+                            </div>
+                            @if (sp.recurring && sp.concreteDates.length > 1) {
+                              <div class="preview-dates">
+                                <span class="preview-k">First {{ sp.concreteDates.length }} occurrences:</span>
+                                <div class="schedule-chip-row">
+                                  @for (d of sp.concreteDates; track d) {
+                                    <span class="schedule-chip" [class.active]="d === sp.startDate">{{ shortDate(d) }}</span>
+                                  }
+                                </div>
+                              </div>
+                            }
+                            <button class="btn btn-primary btn-sm" (click)="applySchedule()">
+                              <app-icon name="check-circle" [size]="14"/>
+                              <span>Apply to request</span>
+                            </button>
+                          }
+                        </div>
+                      }
+                    </div>
                   } @else {
                     <div class="clarification-input-group" style="display: flex; gap: 8px; margin-top: 10px;">
                       <input
                         class="input"
                         style="flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--amber-300);"
-                        [placeholder]="val.question.type === 'date' ? 'YYYY-MM-DD (e.g. 2026-10-17)' : 'Enter ' + val.question.field"
+                        [placeholder]="'Enter ' + val.question.field"
                         [ngModel]="clarificationAnswer()"
                         (ngModelChange)="clarificationAnswer.set($event)"
                         (keyup.enter)="submitClarification(val.question.field)"

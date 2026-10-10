@@ -712,3 +712,37 @@
   }
 }
 
+
+/* ===== Recurring schedule date selector ===== */
+.form-group-full {
+  grid-column: 1 / -1;
+}
+
+.schedule-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.schedule-chip {
+  border: 1.5px solid var(--teal-200);
+  background: #fff;
+  color: var(--teal-800);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    border-color: var(--teal-400);
+    background: var(--teal-50);
+  }
+
+  &.active {
+    background: var(--teal-600);
+    border-color: var(--teal-600);
+    color: #fff;
+  }
+}
