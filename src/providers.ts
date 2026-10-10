@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -8,7 +8,13 @@ import type { Provider } from './types.js';
 /** Project root (the directory holding package.json), for both src/ and dist/. */
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-export const DEFAULT_CSV_PATH = path.join(PROJECT_ROOT, 'carekaki_providers_demo.csv');
+// When bundled as a Netlify Function, import.meta.url resolves inside the
+// function bundle instead of dist/. Locate the included CSV from either root.
+export const DEFAULT_CSV_PATH = [
+  path.join(PROJECT_ROOT, 'carekaki_providers_demo.csv'),
+  path.resolve(process.cwd(), 'carekaki_providers_demo.csv'),
+  path.resolve(process.cwd(), '..', 'carekaki_providers_demo.csv'),
+].find(existsSync) ?? path.join(PROJECT_ROOT, 'carekaki_providers_demo.csv');
 
 export function resolveCsvPath(): string {
   const configured = process.env.CAREKAKI_PROVIDERS_CSV?.trim();

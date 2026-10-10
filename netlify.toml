@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build && npm run ux:build"
+  publish = "carekaki-ux/dist/carekaki-ux/browser"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  included_files = ["carekaki_providers_demo.csv"]
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

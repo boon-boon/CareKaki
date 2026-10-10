@@ -41,6 +41,7 @@ serve-ux*.log
 Thumbs.db
 .vscode/
 .idea/
+.netlify/
 
 # Committed SPA bundle is intentionally tracked so hosts that strip build
 # output can still serve the UI.
