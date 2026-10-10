@@ -1,0 +1,183 @@
+<div class="container">
+  <!-- Page header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Operations Dashboard</h1>
+      <p class="page-subtitle">Real-time overview of your care agency operations</p>
+    </div>
+    <a routerLink="/intake" class="btn btn-primary">
+      <app-icon name="zap" [size]="18"/>
+      <span class="hide-mobile">New Intake</span>
+      <span class="show-mobile">Intake</span>
+    </a>
+  </div>
+
+  <!-- KPI cards -->
+  <div class="kpi-grid">
+    @for (kpi of kpis; track kpi.label) {
+      <div class="card kpi-card" [attr.data-color]="kpi.color">
+        <div class="kpi-top">
+          <div class="kpi-icon" [attr.data-color]="kpi.color">
+            <app-icon [name]="kpi.icon" [size]="22"/>
+          </div>
+          @if (kpi.trend) {
+            <span class="kpi-trend" [class]="'trend-' + kpi.trend_direction">
+              <app-icon
+                [name]="kpi.trend_direction === 'up' ? 'trending-up' : kpi.trend_direction === 'down' ? 'trending-down' : 'minus'"
+                [size]="14"
+              />
+              {{ kpi.trend }}
+            </span>
+          }
+        </div>
+        <div class="kpi-value">{{ kpi.value }}</div>
+        <div class="kpi-label">{{ kpi.label }}</div>
+        <div class="kpi-sublabel">{{ kpi.sublabel }}</div>
+      </div>
+    }
+  </div>
+
+  <!-- Two-column main content -->
+  <div class="dashboard-main">
+    <!-- Left column -->
+    <div class="dashboard-col">
+      <!-- Quick actions -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Quick Actions</span>
+        </div>
+        <div class="card-body">
+          <div class="quick-actions">
+            <a routerLink="/intake" class="quick-action">
+              <div class="qa-icon" data-color="teal"><app-icon name="intake" [size]="20"/></div>
+              <div class="qa-text">
+                <span class="qa-title">New Client Intake</span>
+                <span class="qa-desc">Parse a natural language care request</span>
+              </div>
+              <app-icon name="arrow-right" [size]="18"/>
+            </a>
+            <a routerLink="/roster" class="quick-action">
+              <div class="qa-icon" data-color="blue"><app-icon name="users" [size]="20"/></div>
+              <div class="qa-text">
+                <span class="qa-title">Browse Caregivers</span>
+                <span class="qa-desc">View roster, certifications & availability</span>
+              </div>
+              <app-icon name="arrow-right" [size]="18"/>
+            </a>
+            <a routerLink="/quotations" class="quick-action">
+              <div class="qa-icon" data-color="purple"><app-icon name="file-text" [size]="20"/></div>
+              <div class="qa-text">
+                <span class="qa-title">Generate Quotation</span>
+                <span class="qa-desc">Cost breakdown with SST 8% applied</span>
+              </div>
+              <app-icon name="arrow-right" [size]="18"/>
+            </a>
+            <a routerLink="/pricing" class="quick-action">
+              <div class="qa-icon" data-color="amber"><app-icon name="dollar" [size]="20"/></div>
+              <div class="qa-text">
+                <span class="qa-title">Pricing Matrix</span>
+                <span class="qa-desc">Base rates, surcharges & billing rules</span>
+              </div>
+              <app-icon name="arrow-right" [size]="18"/>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zone distribution -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Caregiver Distribution by Zone</span>
+          <span class="badge badge-gray">{{ zones.length }} zones</span>
+        </div>
+        <div class="card-body">
+          <div class="zone-list">
+            @for (z of zoneDistribution; track z.zone) {
+              <div class="zone-row">
+                <div class="zone-info">
+                  <app-icon name="map-pin" [size]="14"/>
+                  <span class="zone-name">{{ z.zone }}</span>
+                </div>
+                <div class="zone-bar-wrap">
+                  <div class="zone-bar" [style.width.%]="z.pct"></div>
+                </div>
+                <span class="zone-count">{{ z.count }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column -->
+    <div class="dashboard-col">
+      <!-- Availability donut -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Roster Availability</span>
+        </div>
+        <div class="card-body">
+          <div class="donut-wrap">
+            <svg viewBox="0 0 42 42" class="donut">
+              <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--gray-100)" stroke-width="6"/>
+              @for (seg of donutSegments; track seg.label) {
+                <circle
+                  cx="21" cy="21" r="15.9"
+                  fill="none"
+                  [attr.stroke]="seg.color"
+                  stroke-width="6"
+                  [attr.stroke-dasharray]="seg.dash"
+                  [attr.stroke-dashoffset]="seg.offset"
+                  transform="rotate(-90 21 21)"
+                />
+              }
+            </svg>
+            <div class="donut-center">
+              <span class="donut-value">{{ totalCaregivers }}</span>
+              <span class="donut-label">Caregivers</span>
+            </div>
+          </div>
+          <div class="legend">
+            @for (seg of availabilityBreakdown; track seg.label) {
+              <div class="legend-item">
+                <span class="legend-dot" [attr.data-color]="seg.color"></span>
+                <span class="legend-label">{{ seg.label }}</span>
+                <span class="legend-value">{{ seg.value }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity feed -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Recent Activity</span>
+          <span class="badge badge-green">
+            <span class="live-dot"></span> Live
+          </span>
+        </div>
+        <div class="card-body no-pad">
+          <div class="activity-list">
+            @for (item of activity; track item.id) {
+              <div class="activity-item">
+                <div class="activity-icon" [attr.data-color]="activityColor(item.type)">
+                  <app-icon [name]="activityIcon(item.type)" [size]="16"/>
+                </div>
+                <div class="activity-content">
+                  <span class="activity-title">{{ item.title }}</span>
+                  <span class="activity-desc">{{ item.description }}</span>
+                  <span class="activity-time">
+                    <app-icon name="clock" [size]="12"/>
+                    {{ item.timestamp }}
+                  </span>
+                </div>
+                <span class="activity-status" [attr.data-status]="item.status"></span>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

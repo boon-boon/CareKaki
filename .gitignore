@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Builds & caches
+dist/
+**/dist/
+.angular/
+**/.angular/
+tmp/
+out-tsc/
+
+# Environment and secrets
+.env
+*.env
+.env.*
+!.env.example
+
+# Large binary artifacts & agent metadata
+outputs/*.zip
+.workbuddy-ai/
+conversation_dump.json
+extracted_carekaki_files.json
+carekaki_spec.txt
+full_carekaki_spec.md
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

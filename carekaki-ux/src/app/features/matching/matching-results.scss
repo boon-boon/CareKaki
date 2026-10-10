@@ -1,0 +1,714 @@
+/* ============================================================
+   Matching Results
+   ============================================================ */
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.header-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--teal-600);
+}
+
+/* ---------- Intake summary ---------- */
+.intake-summary {
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+
+.summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.summary-head-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.summary-badge {
+  width: 40px;
+  height: 40px;
+  background: var(--blue-50);
+  color: var(--blue-600);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.summary-title {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.summary-sub {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .summary-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.summary-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--gray-50);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  min-width: 0;
+}
+
+.sf-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.sf-value {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Formula callout ---------- */
+.formula-callout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: linear-gradient(135deg, var(--teal-50), var(--blue-50));
+  border: 1px solid var(--teal-100);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  color: var(--teal-700);
+}
+
+.formula-text {
+  font-size: 0.8rem;
+  color: var(--teal-800);
+
+  strong {
+    font-weight: 700;
+    color: var(--teal-600);
+  }
+}
+
+/* ---------- Candidate list ---------- */
+.candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.candidate-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding: 18px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all var(--transition-fast);
+  position: relative;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+  }
+
+  &.selected {
+    border-color: var(--teal-500);
+    box-shadow: 0 0 0 3px var(--teal-100);
+  }
+}
+
+@media (min-width: 900px) {
+  .candidate-card {
+    grid-template-columns: auto auto 1fr 320px;
+    align-items: center;
+    gap: 20px;
+  }
+}
+
+/* Selection radio */
+.candidate-radio {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .candidate-radio {
+    display: flex;
+  }
+}
+
+.radio-outer {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--gray-300);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color var(--transition-fast);
+
+  &.checked {
+    border-color: var(--teal-600);
+  }
+}
+
+.radio-inner {
+  width: 12px;
+  height: 12px;
+  background: var(--teal-600);
+  border-radius: var(--radius-full);
+}
+
+/* Rank column */
+.rank-col {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (min-width: 900px) {
+  .rank-col {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+.rank-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--gray-100);
+  color: var(--gray-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 800;
+  flex-shrink: 0;
+
+  &.rank-1 {
+    background: linear-gradient(135deg, var(--amber-400), var(--amber-600));
+    color: white;
+    box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);
+  }
+}
+
+.rank-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+/* Candidate info */
+.candidate-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.candidate-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cg-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--teal-400), var(--teal-700));
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.cg-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cg-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cg-id {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.cert-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.cert-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  background: var(--teal-50);
+  color: var(--teal-700);
+  border-radius: var(--radius-sm);
+}
+
+.candidate-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Score column */
+.score-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--gray-100);
+}
+
+@media (min-width: 900px) {
+  .score-col {
+    padding-top: 0;
+    padding-left: 20px;
+    border-top: none;
+    border-left: 1px solid var(--gray-100);
+  }
+}
+
+.total-score {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+
+  .score-num {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .score-denom {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  &.score-excellent .score-num { color: var(--green-600); }
+  &.score-good .score-num      { color: var(--teal-600); }
+  &.score-fair .score-num      { color: var(--amber-600); }
+  &.score-low .score-num       { color: var(--red-600); }
+}
+
+.breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.breakdown-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.breakdown-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.breakdown-key {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.breakdown-pts {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary);
+
+  small {
+    font-weight: 500;
+    color: var(--text-muted);
+    font-size: 0.65rem;
+  }
+}
+
+.breakdown-bar-wrap {
+  height: 6px;
+  background: var(--gray-100);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.breakdown-bar {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width var(--transition-slow);
+  min-width: 4px;
+
+  &[data-color='teal']   { background: var(--teal-500); }
+  &[data-color='blue']   { background: var(--blue-500); }
+  &[data-color='purple'] { background: var(--purple-500); }
+}
+
+.breakdown-weight {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+/* ---------- Payload ---------- */
+.payload-card {
+  margin-bottom: 20px;
+}
+
+.no-pad {
+  padding: 0;
+}
+
+.payload-json {
+  background: var(--gray-900);
+  color: #7dd3fc;
+  font-family: 'SF Mono', ui-monospace, 'Cascadia Code', monospace;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  padding: 18px;
+  margin: 0;
+  overflow-x: auto;
+  max-height: 420px;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  white-space: pre;
+}
+
+/* ---------- Confirm bar ---------- */
+.confirm-bar {
+  position: sticky;
+  bottom: calc(var(--bottom-nav-height) + 8px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  box-shadow: var(--shadow-lg);
+  flex-wrap: wrap;
+}
+
+@media (min-width: 1024px) {
+  .confirm-bar {
+    bottom: 16px;
+  }
+}
+
+.confirm-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.confirm-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.confirm-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.confirm-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.confirmed-msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--green-700);
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 640px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .candidate-card {
+    padding: 14px;
+  }
+
+  .total-score .score-num {
+    font-size: 1.7rem;
+  }
+
+  .confirm-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .confirm-actions {
+    flex-direction: column;
+    align-items: stretch;
+
+    .btn {
+      width: 100%;
+    }
+  }
+
+  .confirmed-msg {
+    justify-content: center;
+  }
+}
+
+/* ============================================================
+   CareKaki MCP Integration Styles (Engine Tabs & Diagnostics)
+   ============================================================ */
+
+.engine-tabs-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.engine-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+
+  .tab-badge {
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: var(--gray-100);
+    color: var(--text-tertiary);
+  }
+
+  &.active {
+    background: var(--teal-50);
+    border-color: var(--teal-500);
+    color: var(--teal-800);
+    box-shadow: 0 2px 6px rgba(13, 118, 110, 0.12);
+
+    .tab-badge {
+      background: var(--teal-100);
+      color: var(--teal-800);
+    }
+  }
+
+  &:hover:not(.active) {
+    background: var(--gray-50);
+    color: var(--text-primary);
+  }
+}
+
+.search-control-card {
+  margin-bottom: 18px;
+  border: 1px solid var(--teal-200);
+
+  .card-header {
+    background: var(--teal-50);
+  }
+}
+
+.search-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .form-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-tertiary);
+  }
+
+  .select, .input {
+    width: 100%;
+    padding: 6px 10px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    outline: none;
+
+    &:focus {
+      border-color: var(--teal-500);
+      box-shadow: 0 0 0 2px rgba(13, 118, 110, 0.12);
+    }
+  }
+}
+
+.verified-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: var(--teal-100);
+  color: var(--teal-800);
+  font-size: 0.65rem;
+  font-weight: 700;
+  margin-left: 6px;
+}
+
+/* ---------- Diagnostics Accordion & Table ---------- */
+.diagnostics-card {
+  margin-top: 24px;
+  border: 1px solid var(--teal-300);
+
+  .card-header {
+    background: var(--teal-50);
+  }
+}
+
+.diag-intro {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.diag-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.diag-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  text-align: left;
+
+  th, td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  th {
+    background: var(--gray-50);
+    font-weight: 700;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  tr.eligible-row {
+    background: rgba(13, 118, 110, 0.04);
+  }
+}
+
+.check-pill {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+
+  &.pass {
+    background: var(--green-100);
+    color: var(--green-800);
+  }
+
+  &.fail {
+    background: var(--rose-100);
+    color: var(--rose-800);
+  }
+}
+

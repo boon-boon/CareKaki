@@ -1,0 +1,519 @@
+/* ============================================================
+   Quotation View
+   ============================================================ */
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Document paper ---------- */
+.doc-paper {
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--gray-100);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.doc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px;
+  background: linear-gradient(135deg, var(--teal-700), var(--teal-900));
+  color: white;
+  flex-wrap: wrap;
+}
+
+.doc-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.doc-logo {
+  width: 44px;
+  height: 44px;
+  background: rgba(255,255,255,0.15);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.doc-brand-name {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.doc-brand-sub {
+  display: block;
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.65);
+}
+
+.doc-title-block {
+  text-align: right;
+}
+
+.doc-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.doc-id {
+  font-size: 0.78rem;
+  color: var(--teal-200);
+  font-family: 'SF Mono', ui-monospace, monospace;
+}
+
+/* Meta row */
+.doc-meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  padding: 18px 24px;
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+@media (min-width: 640px) {
+  .doc-meta {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.meta-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.meta-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.meta-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Sections */
+.doc-sections {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  padding: 24px;
+}
+
+@media (min-width: 768px) {
+  .doc-sections {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.doc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  &.full {
+    padding: 0 24px 24px;
+  }
+}
+
+.doc-sections + .doc-section.full {
+  padding-top: 0;
+}
+
+.doc-section.full:not(:first-of-type) {
+  padding-top: 0;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--teal-700);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+/* Detail list */
+.detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+
+  dt {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  dd {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin: 0;
+  }
+}
+
+@media (min-width: 480px) {
+  .detail-row {
+    grid-template-columns: 130px 1fr;
+    gap: 8px;
+    align-items: baseline;
+  }
+}
+
+/* Cost table */
+.cost-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+}
+
+.cost-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.cost-table th {
+  text-align: left;
+  padding: 11px 14px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.cost-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--gray-100);
+  color: var(--text-primary);
+}
+
+.cost-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-subtotal td {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.row-sst td {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.cost-table tfoot .row-total td {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--teal-700);
+  background: var(--teal-50);
+  border-bottom: none;
+}
+
+/* Mobile cost cards */
+.cost-mobile {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cost-mobile-item {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.cmi-desc {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.cmi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    span {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    strong {
+      font-size: 0.85rem;
+      color: var(--text-primary);
+    }
+  }
+}
+
+.cmi-subtotal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px dashed var(--gray-200);
+
+  span { font-size: 0.78rem; color: var(--text-secondary); }
+  strong { font-size: 0.95rem; color: var(--teal-700); }
+}
+
+/* Totals — shown on mobile only (desktop table already carries the totals) */
+.totals {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+  margin-left: auto;
+  max-width: 340px;
+  width: 100%;
+}
+
+.total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  padding: 4px 0;
+
+  span:last-child {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  &.sst {
+    color: var(--text-secondary);
+  }
+
+  &.grand {
+    margin-top: 6px;
+    padding-top: 12px;
+    border-top: 2px solid var(--teal-200);
+    font-size: 1rem;
+
+    span {
+      font-weight: 800;
+      color: var(--teal-700);
+    }
+  }
+}
+
+/* Terms */
+.terms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 20px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+
+  li::marker {
+    color: var(--teal-600);
+    font-weight: 700;
+  }
+}
+
+/* Doc footer */
+.doc-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 24px;
+  background: var(--gray-50);
+  border-top: 1px solid var(--gray-100);
+  flex-wrap: wrap;
+}
+
+.footer-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--teal-700);
+}
+
+.footer-valid {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* ---------- Next steps ---------- */
+.next-steps {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .next-steps {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.next-step-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-surface);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+
+  &:hover {
+    border-color: var(--teal-300);
+    box-shadow: var(--shadow-sm);
+
+    > app-icon:last-child {
+      transform: translateX(3px);
+      color: var(--teal-600);
+    }
+  }
+
+  > app-icon:last-child {
+    color: var(--text-muted);
+    transition: transform var(--transition-fast), color var(--transition-fast);
+  }
+}
+
+.ns-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  &[data-color='amber'] { background: var(--amber-50); color: var(--amber-600); }
+  &[data-color='blue']  { background: var(--blue-50);  color: var(--blue-600); }
+}
+
+.ns-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ns-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.ns-desc {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* ---------- Responsive: swap cost table for cards on mobile ---------- */
+@media (max-width: 767px) {
+  .cost-table-wrap {
+    display: none;
+  }
+
+  .cost-mobile {
+    display: flex;
+  }
+
+  .totals {
+    display: flex;
+  }
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 640px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .header-actions {
+    .btn { flex: 1; }
+  }
+
+  .doc-header {
+    padding: 18px;
+  }
+
+  .doc-title-block {
+    text-align: left;
+  }
+
+  .doc-meta,
+  .doc-sections {
+    padding: 16px;
+  }
+
+  .doc-section.full {
+    padding: 0 16px 16px;
+  }
+
+  .doc-footer {
+    padding: 14px 16px;
+  }
+
+  .totals {
+    max-width: none;
+  }
+}

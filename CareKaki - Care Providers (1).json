@@ -1,0 +1,411 @@
+{
+  "name": "CareKaki - Care Providers",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "carekaki/search-providers",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "af9359f3-66c1-47b6-b30d-8670421b579d",
+      "name": "Webhook",
+      "webhookId": "b29ef7ee-64fa-43ab-a5bc-cc603249c4be"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1472,
+        -96
+      ],
+      "id": "1cee1467-eef3-4e15-a86b-52e3a6fcd454",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst body = $input.first().json.body;\n\nif (!body || typeof body !== \"object\" ||\n    Array.isArray(body)) {\n  return [{\n    json: {\n      status: \"invalid_request\",\n      message: \"Expected a JSON object\"\n    }\n  }];\n}\n\nconst request = {};\nconst questions = [];\n\nfunction ask(field, text, type, options = []) {\n  questions.push({ field, text, type, options });\n}\n\nfunction choice(label, value) {\n  return { label, value };\n}\n\n// 1. Location\nif (typeof body.location === \"string\" &&\n    body.location.trim()) {\n  request.location = body.location.trim();\n} else {\n  ask(\"location\", \"Where is care needed?\", \"single_select\", [\n    choice(\"Petaling Jaya\", \"Petaling Jaya\"),\n    choice(\"Subang Jaya\", \"Subang Jaya\"),\n    choice(\"Kuala Lumpur\", \"Kuala Lumpur\"),\n    choice(\"Shah Alam\", \"Shah Alam\")\n  ]);\n}\n\n// 2. Required services\nif (Array.isArray(body.required_services) &&\n    body.required_services.length > 0 &&\n    body.required_services.every(\n      s => typeof s === \"string\" && s.trim()\n    )) {\n  request.required_services =\n    body.required_services.map(s => s.trim().toLowerCase());\n} else {\n  ask(\n    \"required_services\",\n    \"What kind of assistance is needed?\",\n    \"multi_select\",\n    [\n      choice(\"Elderly care\", \"elderly_care\"),\n      choice(\"Mobility assistance\", \"mobility_assistance\"),\n      choice(\"Companionship\", \"companionship\"),\n      choice(\"Dementia care\", \"dementia_care\")\n    ]\n  );\n}\n\n// 3. Date\nconst isValidDate = value => {\n  if (typeof value !== \"string\" ||\n      !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) {\n    return false;\n  }\n  const date = new Date(`${value}T00:00:00Z`);\n  return !Number.isNaN(date.getTime()) &&\n    date.toISOString().slice(0, 10) === value;\n};\n\nif (isValidDate(body.date)) {\n  request.date = body.date;\n} else {\n  ask(\"date\", \"Which date do you need care?\", \"date\");\n}\n\n// 4. Start time\nif (typeof body.start_time === \"string\" &&\n    /^([01]\\d|2[0-3]):[0-5]\\d$/.test(body.start_time)) {\n  request.start_time = body.start_time;\n} else {\n  ask(\"start_time\", \"When should care begin?\", \"single_select\", [\n    choice(\"Morning (09:00)\", \"09:00\"),\n    choice(\"Afternoon (13:00)\", \"13:00\"),\n    choice(\"Evening (18:00)\", \"18:00\")\n  ]);\n}\n\n// 5. Duration\nif (typeof body.duration_hours === \"number\" &&\n    Number.isFinite(body.duration_hours) &&\n    body.duration_hours > 0) {\n  request.duration_hours = body.duration_hours;\n} else {\n  ask(\"duration_hours\", \"How long is care needed?\", \"single_select\", [\n    choice(\"2 hours\", 2),\n    choice(\"4 hours\", 4),\n    choice(\"6 hours\", 6),\n    choice(\"8 hours\", 8)\n  ]);\n}\n\n// 6. Budget\nif (typeof body.max_budget === \"number\" &&\n    Number.isFinite(body.max_budget) &&\n    body.max_budget > 0) {\n  request.max_budget = body.max_budget;\n} else {\n  ask(\"max_budget\", \"What is your total budget?\", \"single_select\", [\n    choice(\"RM100\", 100),\n    choice(\"RM150\", 150),\n    choice(\"RM200\", 200),\n    choice(\"RM300\", 300)\n  ]);\n}\n\n// Preferred language is optional.\nrequest.preferred_language =\n  typeof body.preferred_language === \"string\"\n    ? body.preferred_language.trim()\n    : \"\";\n\n// Ask about missing details, one at a time.\nif (questions.length > 0) {\n  return [{\n    json: {\n      status: \"needs_clarification\",\n      draft_request: request,\n      question: questions[0],\n      missing_fields: questions.map(q => q.field)\n    }\n  }];\n}\n\n// This prototype supports same-day care only.\nconst [hours, minutes] =\n  request.start_time.split(\":\").map(Number);\n\nconst endMinutes =\n  hours * 60 + minutes + request.duration_hours * 60;\n\nif (endMinutes > 1440) {\n  delete request.start_time;\n\n  return [{\n    json: {\n      status: \"needs_clarification\",\n      draft_request: request,\n      question: {\n        field: \"start_time\",\n        text: \"This demo supports same-day care. Please choose an earlier start time or adjust the duration.\",\n        type: \"time\",\n        options: []\n      },\n      missing_fields: [\"start_time\"]\n    }\n  }];\n}\n\n// Ask for confirmation before searching.\nif (body.confirmed !== true) {\n  return [{\n    json: {\n      status: \"needs_confirmation\",\n      message: \"Are these care requirements correct?\",\n      draft_request: request,\n      options: [\n        choice(\"Confirm & Search\", true),\n        choice(\"Change Details\", false)\n      ]\n    }\n  }];\n}\n\n// All details collected and confirmed.\nreturn [{\n  json: {\n    status: \"valid\",\n    request\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "7361a9cd-986e-47dc-9a9f-415901b24260",
+      "name": "Validate Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "68cb8d82-615a-4c3a-862d-7a24521330ed",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "valid",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        672,
+        0
+      ],
+      "id": "a5064ec9-3b8f-48d8-8db4-6aba9145e444",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        880,
+        112
+      ],
+      "id": "ee41962d-94e1-42ab-99e8-14078149f902",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst data = $input.first().json;\n\nif (data.status === \"invalid_request\") {\n  return [{ json: data }];\n}\n\nconst request = data.request;\nconst providers = data.providers;\n\nfunction toMinutes(time) {\n  const [hours, minutes] = time.split(\":\").map(Number);\n  return hours * 60 + minutes;\n}\n\nconst requestedStart = toMinutes(request.start_time);\nconst requestedEnd =\n  requestedStart + request.duration_hours * 60;\n\nfunction isAvailable(provider) {\n  return provider.availability.some(slot => {\n    return (\n      slot.date === request.date &&\n      toMinutes(slot.start) <= requestedStart &&\n      toMinutes(slot.end) >= requestedEnd\n    );\n  });\n}\n\nfunction totalCost(provider) {\n  return provider.hourly_rate * request.duration_hours;\n}\n\nconst eligible = providers.filter(provider => {\n  const locationMatch =\n    provider.location.toLowerCase() ===\n    request.location.toLowerCase();\n\n  const servicesMatch =\n    request.required_services.every(service =>\n      provider.services.includes(service)\n    );\n\n  const verifiedMatch = provider.verified === true;\n  const availabilityMatch = isAvailable(provider);\n\n  const budgetMatch =\n    totalCost(provider) <= request.max_budget;\n\n  return (\n    locationMatch &&\n    servicesMatch &&\n    verifiedMatch &&\n    availabilityMatch &&\n    budgetMatch\n  );\n});\n\nconst ranked = eligible.map(provider => {\n  const cost = totalCost(provider);\n\n  const ratingScore = (provider.rating / 5) * 100;\n\n  const affordabilityScore =\n    (1 - cost / request.max_budget) * 100;\n\n  const languageMatch =\n    !request.preferred_language ||\n    provider.languages.some(language =>\n      language.toLowerCase() ===\n      request.preferred_language.toLowerCase()\n    );\n\n  // If language is not specified, assign neutral score.\n  const languageScore =\n    !request.preferred_language ? 50 :\n    languageMatch ? 100 : 0;\n\n  const score =\n    ratingScore * 0.50 +\n    affordabilityScore * 0.35 +\n    languageScore * 0.15;\n\n  return {\n    provider_id: provider.provider_id,\n    name: provider.name,\n    location: provider.location,\n    hourly_rate: provider.hourly_rate,\n    estimated_cost: cost,\n    currency: \"MYR\",\n    rating: provider.rating,\n    verified: provider.verified,\n    languages: provider.languages,\n    preferred_language_match: languageMatch,\n    available: true,\n    match_score: Number(score.toFixed(2))\n  };\n});\n\nranked.sort((a, b) =>\n  b.match_score - a.match_score ||\n  a.estimated_cost - b.estimated_cost ||\n  a.provider_id.localeCompare(b.provider_id)\n);\n\nreturn [{\n  json: {\n    status: ranked.length > 0\n      ? \"matches_found\"\n      : \"no_matches\",\n    request,\n    total_matches: ranked.length,\n    matches: ranked.slice(0, 5),\n    data_source: \"fictional_demo\",\n    booking_status: \"not_booked\"\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        -96
+      ],
+      "id": "002ead49-2bc9-484a-8736-c4f043709e24",
+      "name": "Filter & Rank Providers"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "WvgM8QxT4mcVfXSc",
+          "mode": "list",
+          "cachedResultName": "carekaki providers demo",
+          "cachedResultUrl": "/projects/ZSZDSJ650zBZHjvV/datatables/WvgM8QxT4mcVfXSc"
+        },
+        "filters": {
+          "conditions": []
+        },
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        896,
+        -96
+      ],
+      "id": "85586810-2884-4c60-bf15-b44065680239",
+      "name": "Get row(s)2",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst request = $('Validate Input').first().json.request;\n\nfunction splitValues(value) {\n  return String(value ?? '')\n    .split('|')\n    .map(s => s.trim())\n    .filter(Boolean);\n}\n\n// Convert UTC timestamps into Malaysia calendar dates.\nfunction normalizeDate(value) {\n  if (!value) return '';\n\n  const text = String(value);\n\n  // Already in YYYY-MM-DD format.\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(text)) {\n    return text;\n  }\n\n  const date = new Date(text);\n  if (Number.isNaN(date.getTime())) {\n    return '';\n  }\n\n  const parts = new Intl.DateTimeFormat('en-US', {\n    timeZone: 'Asia/Kuala_Lumpur',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit'\n  }).formatToParts(date);\n\n  const fields = Object.fromEntries(\n    parts.map(part => [part.type, part.value])\n  );\n\n  return `${fields.year}-${fields.month}-${fields.day}`;\n}\n\nconst providers = $input.all()\n  .map(item => item.json)\n  .filter(row => row.provider_id)\n  .map(row => ({\n    provider_id: String(row.provider_id),\n    name: String(row.name ?? ''),\n    location: String(row.location ?? ''),\n    hourly_rate: Number(row.hourly_rate),\n    rating: Number(row.rating),\n    verified: row.verified === true ||\n      String(row.verified).toLowerCase() === 'true',\n    services: splitValues(row.services)\n      .map(s => s.toLowerCase()),\n    languages: splitValues(row.languages),\n    availability: [{\n      date: normalizeDate(row.available_date),\n      start: String(row.available_from ?? ''),\n      end: String(row.available_to ?? '')\n    }]\n  }));\n\nreturn [{\n  json: {\n    status: 'valid',\n    request,\n    providers\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1088,
+        -96
+      ],
+      "id": "df38aaf9-1ded-4c77-8827-d49602be1225",
+      "name": "Prepare Provider Records"
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst data = $input.first().json;\nconst request = data.request;\nconst providers = data.providers || [];\n\nfunction toMinutes(time) {\n  if (typeof time !== \"string\") return NaN;\n  const [h, m] = time.split(\":\").map(Number);\n  return h * 60 + m;\n}\n\nconst start = toMinutes(request.start_time);\nconst end = start + request.duration_hours * 60;\n\nconst diagnostics = providers.map(provider => {\n  const checks = {\n    location:\n      provider.location.toLowerCase() ===\n      request.location.toLowerCase(),\n\n    services:\n      request.required_services.every(service =>\n        provider.services.includes(service)\n      ),\n\n    verified:\n      provider.verified === true,\n\n    availability:\n      provider.availability.some(slot =>\n        slot.date === request.date &&\n        toMinutes(slot.start) <= start &&\n        toMinutes(slot.end) >= end\n      ),\n\n    budget:\n      provider.hourly_rate *\n      request.duration_hours <= request.max_budget\n  };\n\n  return {\n    provider_id: provider.provider_id,\n    name: provider.name,\n    eligible: Object.values(checks).every(Boolean),\n    checks,\n    failed_checks: Object.keys(checks).filter(\n      key => !checks[key]\n    ),\n    actual_values: {\n      location: provider.location,\n      services: provider.services,\n      verified: provider.verified,\n      availability: provider.availability,\n      estimated_cost:\n        provider.hourly_rate * request.duration_hours\n    }\n  };\n});\n\nreturn [{\n  json: {\n    ...data,\n    debug: {\n      provider_count: providers.length,\n      diagnostics\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        992
+      ],
+      "id": "4837ba0c-a62f-4eb0-aa3f-36f6c2c01075",
+      "name": "Debug Matching"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are CareKaki, a friendly caregiver coordination\nassistant for families in Malaysia.\n\nYour job is to collect enough information to help\nfind suitable respite-care providers.\n\nRequired information:\n- Location\n- Date (YYYY-MM-DD)\n- Start time (HH:mm)\n- Duration in hours\n- Required care services\n- Maximum total budget in MYR\n\nOptional information:\n- Preferred language\n\nRules:\n1. Understand natural-language caregiver requests.\n2. Remember information already provided in the chat.\n3. Never ask for a detail the caregiver already gave clearly.\n4. Ask ONE clarification question at a time.\n5. Offer 2–4 numbered choices when appropriate,\n   plus an option to provide a different answer.\n6. Do not invent missing details.\n7. Confirm the exact calendar date for ambiguous\n   expressions such as \"this Saturday\".\n8. Once all required details are collected,\n   summarize them and ask for confirmation.\n9. Do not say a search has been performed unless\n   the search tool has actually been executed.\n10. Never invent providers, availability,\n    verification status, or bookings.\n11. This prototype uses fictional demo providers.\n\nRespond in a friendly, concise manner.\n\n\nYou have access to search_care_providers.\n\nCollect the caregiver's location, date, start\ntime, duration, required services, and budget.\n\nAsk one clarification question at a time.\nRemember the information already provided.\n\nWhen all required information is collected,\nsummarize it and ask for explicit confirmation.\n\nDo not set confirmed to true unless the\ncaregiver has confirmed the full requirements.\n\nAfter confirmation, call search_care_providers.\n\nOnly recommend providers returned by the tool.\nNever invent prices, availability, or bookings.\n\nAll providers are fictional demo records."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        176,
+        192
+      ],
+      "id": "3387ee49-08d6-40aa-b4e3-39ab06df97a3",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-flash-lite-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        128,
+        384
+      ],
+      "id": "acc63bc7-26b2-4a4c-8c85-991bc58d7414",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "hZ1Ipnx4c3m5AGBs",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseMode": "lastNode"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        -16,
+        192
+      ],
+      "id": "185268fb-545e-45c0-9bb0-b75b01f9904e",
+      "name": "When chat message received",
+      "webhookId": "361a8d18-f024-46c2-bf47-3739424011ad"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        272,
+        384
+      ],
+      "id": "aa72ecc5-f31b-469a-a6c1-ef734bc3dd6c",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "model": "openrouter/free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -32,
+        384
+      ],
+      "id": "02c8e37a-ceaa-4aa7-b7e7-8e1c6ee2a57c",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "AsItVxgq2qMVnHwb",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/carekaki/search-providers",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=\n{{ JSON.stringify({\n  location: $fromAI(\n    \"location\",\n    \"Caregiver's requested city\",\n    \"string\"\n  ),\n  date: $fromAI(\n    \"date\",\n    \"Requested date in YYYY-MM-DD format\",\n    \"string\"\n  ),\n  start_time: $fromAI(\n    \"start_time\",\n    \"Requested start time in HH:mm format\",\n    \"string\"\n  ),\n  duration_hours: $fromAI(\n    \"duration_hours\",\n    \"Requested number of care hours\",\n    \"number\"\n  ),\n  required_services: $fromAI(\n    \"required_services\",\n    \"Array of service codes such as elderly_care and mobility_assistance\",\n    \"json\"\n  ),\n  max_budget: $fromAI(\n    \"max_budget\",\n    \"Maximum total budget in MYR\",\n    \"number\"\n  ),\n  preferred_language: $fromAI(\n    \"preferred_language\",\n    \"Preferred language or empty string\",\n    \"string\",\n    \"\"\n  ),\n  confirmed: $fromAI(\n    \"confirmed\",\n    \"True only after caregiver explicitly confirms the full search requirements\",\n    \"boolean\"\n  )\n}) }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        416,
+        384
+      ],
+      "id": "43089a8a-a1fa-4cb2-a329-b77de3fc6947",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Get row(s)2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter & Rank Providers": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s)2": {
+      "main": [
+        [
+          {
+            "node": "Prepare Provider Records",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Provider Records": {
+      "main": [
+        [
+          {
+            "node": "Filter & Rank Providers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debug Matching": {
+      "main": [
+        []
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        []
+      ]
+    },
+    "HTTP Request": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3e545ff0-9900-49ad-b1f9-6c9e3881f36b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dde93e54297a09e36ddc29f00efabb490ef752c93b2a06d241cc2d8566e503ea"
+  },
+  "nodeGroups": [],
+  "id": "ofU0CyfVeZJZ8wLo",
+  "tags": []
+}

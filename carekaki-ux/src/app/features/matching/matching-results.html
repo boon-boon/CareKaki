@@ -1,0 +1,471 @@
+<div class="container">
+  <!-- Page header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Caregiver Matching & Ranking</h1>
+      <p class="page-subtitle">Multi-criteria matching engine powered by CareKaki MCP Protocol</p>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn btn-outline btn-sm" (click)="toggleDiagnostics()">
+        <app-icon name="activity" [size]="16"/>
+        <span>{{ showDiagnostics() ? 'Hide' : 'Explain' }} Eligibility Diagnostics</span>
+      </button>
+      <button class="btn btn-outline btn-sm" (click)="showPayload.set(!showPayload())">
+        <app-icon name="file-text" [size]="16"/>
+        <span>{{ showPayload() ? 'Hide' : 'View' }} Handoff Payload</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Engine Mode Tabs -->
+  <div class="engine-tabs-bar">
+    <button
+      class="engine-tab-btn"
+      [class.active]="activeTab() === 'mcp'"
+      (click)="setTab('mcp')"
+    >
+      <app-icon name="zap" [size]="16"/>
+      <span>Live CareKaki MCP Engine (carekaki_providers_demo.csv)</span>
+      <span class="tab-badge" [class.badge-green]="mcp.isOnline()">
+        {{ mcp.isOnline() ? 'Live Connected' : 'Local Standby' }}
+      </span>
+    </button>
+    <button
+      class="engine-tab-btn"
+      [class.active]="activeTab() === 'spec'"
+      (click)="setTab('spec')"
+    >
+      <app-icon name="clipboard" [size]="16"/>
+      <span>Spec Reference Candidates (100.0, 90.0, 80.0)</span>
+    </button>
+  </div>
+
+  <!-- ===== Tab 1: Live MCP Matching ===== -->
+  @if (activeTab() === 'mcp') {
+    <!-- Search Query Controls -->
+    <div class="card search-control-card">
+      <div class="card-header">
+        <div class="header-with-icon">
+          <app-icon name="search" [size]="17"/>
+          <span class="card-title">Live Search Criteria (Sent to <code>carekaki_search_providers</code>)</span>
+        </div>
+        <button class="btn btn-primary btn-sm" (click)="runMcpSearch()" [disabled]="mcpLoading()">
+          @if (mcpLoading()) {
+            <span class="spinner"></span>
+            <span>Running Search...</span>
+          } @else {
+            <app-icon name="refresh" [size]="14"/>
+            <span>Re-run Match</span>
+          }
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="search-form-grid">
+          <div class="form-group">
+            <label class="form-label">City Location</label>
+            <select class="select" [ngModel]="searchCity()" (ngModelChange)="searchCity.set($event); runMcpSearch()">
+              <option value="Petaling Jaya">Petaling Jaya</option>
+              <option value="Subang Jaya">Subang Jaya</option>
+              <option value="Kuala Lumpur">Kuala Lumpur</option>
+              <option value="Shah Alam">Shah Alam</option>
+              <option value="Cheras">Cheras</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Care Service</label>
+            <select class="select" [ngModel]="searchService()" (ngModelChange)="searchService.set($event); runMcpSearch()">
+              <option value="elderly_care">Elderly Care</option>
+              <option value="mobility_assistance">Mobility Assistance</option>
+              <option value="companionship">Companionship</option>
+              <option value="dementia_care">Dementia Care</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date (Demo: 2026-10-17)</label>
+            <input type="date" class="input" [ngModel]="searchDate()" (ngModelChange)="searchDate.set($event); runMcpSearch()"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Start Time</label>
+            <select class="select" [ngModel]="searchTime()" (ngModelChange)="searchTime.set($event); runMcpSearch()">
+              <option value="09:00">09:00 (Morning)</option>
+              <option value="13:00">13:00 (Afternoon)</option>
+              <option value="18:00">18:00 (Evening)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Duration</label>
+            <select class="select" [ngModel]="searchDuration()" (ngModelChange)="searchDuration.set($event); runMcpSearch()">
+              <option [value]="2">2 hours</option>
+              <option [value]="4">4 hours</option>
+              <option [value]="6">6 hours</option>
+              <option [value]="8">8 hours</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Max Budget (MYR)</label>
+            <select class="select" [ngModel]="searchBudget()" (ngModelChange)="searchBudget.set($event); runMcpSearch()">
+              <option [value]="100">RM 100</option>
+              <option [value]="150">RM 150</option>
+              <option [value]="200">RM 200</option>
+              <option [value]="300">RM 300</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Preferred Language (Optional)</label>
+            <select class="select" [ngModel]="searchLanguage()" (ngModelChange)="searchLanguage.set($event); runMcpSearch()">
+              <option value="">No preference</option>
+              <option value="Malay">Malay</option>
+              <option value="English">English</option>
+              <option value="Mandarin">Mandarin</option>
+              <option value="Tamil">Tamil</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MCP Scoring formula callout -->
+    <div class="formula-callout">
+      <app-icon name="zap" [size]="16"/>
+      <span class="formula-text">
+        CareKaki MCP Rank Formula: <strong>Rating (50%)</strong> + <strong>Affordability (35%)</strong> + <strong>Language Match (15%)</strong>. All 5 criteria (location, all services, verified, availability, budget) must be satisfied.
+      </span>
+    </div>
+
+    <!-- Candidate cards (MCP matches) -->
+    @if (mcpMatches().length > 0) {
+      <div class="candidate-list">
+        @for (c of mcpMatches(); track c.provider_id; let idx = $index) {
+          <div
+            class="card candidate-card"
+            [class.selected]="selectedId() === c.provider_id"
+            (click)="selectCandidate(c.provider_id)"
+          >
+            <!-- Selection radio -->
+            <div class="candidate-radio">
+              <div class="radio-outer" [class.checked]="selectedId() === c.provider_id">
+                @if (selectedId() === c.provider_id) {
+                  <div class="radio-inner"></div>
+                }
+              </div>
+            </div>
+
+            <!-- Rank badge -->
+            <div class="rank-col">
+              <div class="rank-badge" [class.rank-1]="idx === 0">
+                @if (idx === 0) {
+                  <app-icon name="star" [size]="16"/>
+                } @else {
+                  #{{ idx + 1 }}
+                }
+              </div>
+              <span class="rank-label">{{ idx === 0 ? 'Best Match' : 'Rank ' + (idx + 1) }}</span>
+            </div>
+
+            <!-- Caregiver info -->
+            <div class="candidate-info">
+              <div class="candidate-head">
+                <div class="cg-avatar">{{ initials(c.name) }}</div>
+                <div class="cg-details">
+                  <span class="cg-name">{{ c.name }}</span>
+                  <span class="cg-id">
+                    {{ c.provider_id }} · {{ c.location }}
+                    @if (c.verified) {
+                      <span class="verified-pill">
+                        <app-icon name="shield" [size]="12"/>
+                        Verified
+                      </span>
+                    }
+                  </span>
+                </div>
+              </div>
+
+              <!-- Languages -->
+              <div class="cert-list">
+                @for (lang of c.languages; track lang) {
+                  <span class="cert-tag">{{ lang }}</span>
+                }
+                @if (c.preferred_language_match) {
+                  <span class="cert-tag" style="background: var(--purple-50); color: var(--purple-700); border-color: var(--purple-200);">
+                    Language Match
+                  </span>
+                }
+              </div>
+
+              <div class="candidate-meta">
+                <span class="meta-item">
+                  <app-icon name="dollar" [size]="14"/>
+                  RM {{ c.hourly_rate }}/hr (Est. total: <strong>RM {{ c.estimated_cost }}</strong>)
+                </span>
+                <span class="meta-item">
+                  <app-icon name="star" [size]="14"/>
+                  Rating: <strong>{{ c.rating }} / 5.0</strong>
+                </span>
+                <span class="meta-item">
+                  <app-icon name="check-circle" [size]="14"/>
+                  Time Slot Available
+                </span>
+              </div>
+            </div>
+
+            <!-- Score breakdown -->
+            <div class="score-col">
+              <div class="total-score" [class]="scoreClass(c.match_score)">
+                <span class="score-num">{{ c.match_score }}</span>
+                <span class="score-denom">/100</span>
+              </div>
+              <div class="breakdown">
+                @for (b of mcpContributions(c); track b.key) {
+                  <div class="breakdown-row">
+                    <div class="breakdown-head">
+                      <span class="breakdown-key">{{ b.key }}</span>
+                      <span class="breakdown-pts">{{ b.points | number:'1.1-1' }}<small> pts</small></span>
+                    </div>
+                    <div class="breakdown-bar-wrap">
+                      <div
+                        class="breakdown-bar"
+                        [attr.data-color]="b.color"
+                        [style.width.%]="b.raw"
+                      ></div>
+                    </div>
+                    <span class="breakdown-weight">{{ b.weight }} weight · raw {{ b.raw | number:'1.0-0' }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="card empty-card" style="min-height: 200px;">
+        <div class="empty-state">
+          <app-icon name="alert" [size]="32" style="color: var(--amber-600); margin-bottom: 8px;"/>
+          <h3 class="empty-title">No providers meet all 5 criteria</h3>
+          <p class="empty-text">
+            No fictional providers in the catalogue matched this exact combination of city, date, time window, and budget.
+            Click <strong>Explain Eligibility Diagnostics</strong> above to see why other providers were excluded.
+          </p>
+        </div>
+      </div>
+    }
+  }
+
+  <!-- ===== Tab 2: Spec Reference Candidates ===== -->
+  @if (activeTab() === 'spec') {
+    <div class="candidate-list">
+      @for (c of specCandidates; track c.caregiver_id) {
+        <div
+          class="card candidate-card"
+          [class.selected]="selectedId() === c.caregiver_id"
+          (click)="selectCandidate(c.caregiver_id)"
+        >
+          <!-- Selection radio -->
+          <div class="candidate-radio">
+            <div class="radio-outer" [class.checked]="selectedId() === c.caregiver_id">
+              @if (selectedId() === c.caregiver_id) {
+                <div class="radio-inner"></div>
+              }
+            </div>
+          </div>
+
+          <!-- Rank badge -->
+          <div class="rank-col">
+            <div class="rank-badge" [class.rank-1]="c.rank === 1">
+              @if (c.rank === 1) {
+                <app-icon name="star" [size]="16"/>
+              } @else {
+                #{{ c.rank }}
+              }
+            </div>
+            <span class="rank-label">{{ rankLabel(c.rank) }}</span>
+          </div>
+
+          <!-- Caregiver info -->
+          <div class="candidate-info">
+            <div class="candidate-head">
+              <div class="cg-avatar">{{ initials(c.name) }}</div>
+              <div class="cg-details">
+                <span class="cg-name">{{ c.name }}</span>
+                <span class="cg-id">{{ c.caregiver_id }} · {{ c.primary_zone }}</span>
+              </div>
+            </div>
+            <div class="cert-list">
+              @for (cert of certList(c.certifications); track cert) {
+                <span class="cert-tag">{{ cert }}</span>
+              }
+            </div>
+            <div class="candidate-meta">
+              <span class="meta-item">
+                <app-icon name="dollar" [size]="14"/>
+                {{ formatMYR(c.hourly_rate_myr) }}/hr
+              </span>
+              <span class="meta-item">
+                <app-icon name="check-circle" [size]="14"/>
+                {{ c.availability_status === 'available' ? 'Available' : c.availability_status }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Score breakdown -->
+          <div class="score-col">
+            <div class="total-score" [class]="scoreClass(c.total_score)">
+              <span class="score-num">{{ c.total_score }}</span>
+              <span class="score-denom">/100</span>
+            </div>
+            <div class="breakdown">
+              @for (b of contributions(c); track b.key) {
+                <div class="breakdown-row">
+                  <div class="breakdown-head">
+                    <span class="breakdown-key">{{ b.key }}</span>
+                    <span class="breakdown-pts">{{ b.points | number:'1.1-1' }}<small> pts</small></span>
+                  </div>
+                  <div class="breakdown-bar-wrap">
+                    <div
+                      class="breakdown-bar"
+                      [attr.data-color]="b.color"
+                      [style.width.%]="b.raw"
+                    ></div>
+                  </div>
+                  <span class="breakdown-weight">{{ b.weight }} weight · raw {{ b.raw }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ===== Diagnostics Accordion (MCP Tool: carekaki_explain_matching) ===== -->
+  @if (showDiagnostics()) {
+    <div class="card diagnostics-card animate-fade-in">
+      <div class="card-header">
+        <div class="header-with-icon">
+          <app-icon name="activity" [size]="18"/>
+          <span class="card-title">Eligibility Diagnostics (All 20 Providers)</span>
+        </div>
+        <span class="badge badge-teal">carekaki_explain_matching</span>
+      </div>
+      <div class="card-body">
+        <p class="diag-intro">
+          This inspection answers <em>"Why was or wasn't a caregiver eligible?"</em>.
+          To qualify for ranking, a provider must pass all five checks: exact location, all requested services, verified flag, availability time-window, and budget limit.
+        </p>
+
+        @if (diagnosticsLoading()) {
+          <div style="padding: 24px; text-align: center;">
+            <span class="spinner spinner-teal"></span>
+            <p style="margin-top: 8px; color: var(--text-secondary); font-size: 0.85rem;">Querying MCP diagnostics tool...</p>
+          </div>
+        } @else {
+          <div class="diag-table-wrap">
+            <table class="diag-table">
+              <thead>
+                <tr>
+                  <th>Provider</th>
+                  <th>Location</th>
+                  <th>Services</th>
+                  <th>Verified</th>
+                  <th>Time Window</th>
+                  <th>Budget</th>
+                  <th>Outcome</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (d of mcpDiagnostics(); track d.provider_id) {
+                  <tr [class.eligible-row]="d.eligible">
+                    <td>
+                      <strong>{{ d.provider_id }}</strong><br>
+                      <small style="color: var(--text-secondary);">{{ d.name }}</small>
+                    </td>
+                    <td>
+                      <span class="check-pill" [class.pass]="d.checks.location" [class.fail]="!d.checks.location">
+                        {{ d.checks.location ? 'PASS' : 'MISMATCH' }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="check-pill" [class.pass]="d.checks.services" [class.fail]="!d.checks.services">
+                        {{ d.checks.services ? 'PASS' : 'MISSING' }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="check-pill" [class.pass]="d.checks.verified" [class.fail]="!d.checks.verified">
+                        {{ d.checks.verified ? 'PASS' : 'UNVERIFIED' }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="check-pill" [class.pass]="d.checks.availability" [class.fail]="!d.checks.availability">
+                        {{ d.checks.availability ? 'PASS' : 'UNAVAILABLE' }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="check-pill" [class.pass]="d.checks.budget" [class.fail]="!d.checks.budget">
+                        {{ d.checks.budget ? 'PASS' : 'OVER BUDGET' }}
+                      </span>
+                    </td>
+                    <td>
+                      @if (d.eligible) {
+                        <span class="badge badge-green">ELIGIBLE</span>
+                      } @else {
+                        <span class="badge badge-rose">EXCLUDED ({{ d.failed_checks.length }} failed)</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Handoff payload preview -->
+  @if (showPayload()) {
+    <div class="card payload-card animate-fade-in">
+      <div class="card-header">
+        <div class="header-with-icon">
+          <app-icon name="file-text" [size]="18"/>
+          <span class="card-title">Handoff Payload → DocumentGeneratorAgent</span>
+        </div>
+        <button class="btn btn-ghost btn-sm" (click)="copyPayload()">
+          <app-icon name="copy" [size]="15"/>
+          <span>Copy JSON</span>
+        </button>
+      </div>
+      <div class="card-body no-pad">
+        <pre class="payload-json">{{ payloadJson }}</pre>
+      </div>
+    </div>
+  }
+
+  <!-- Confirmation action bar -->
+  <div class="confirm-bar">
+    <div class="confirm-info">
+      @if (activeTab() === 'mcp' && selectedMcp(); as s) {
+        <span class="confirm-label">Selected MCP Provider</span>
+        <span class="confirm-name">{{ s.name }} ({{ s.provider_id }}) · Est. RM {{ s.estimated_cost }}</span>
+      } @else if (selectedSpec(); as s) {
+        <span class="confirm-label">Selected Spec Caregiver</span>
+        <span class="confirm-name">{{ s.name }} ({{ s.caregiver_id }})</span>
+      }
+    </div>
+    <div class="confirm-actions">
+      @if (confirmed()) {
+        <span class="confirmed-msg">
+          <app-icon name="check-circle" [size]="16"/>
+          Confirmed — ready for quotation & job order
+        </span>
+        <a routerLink="/quotations" class="btn btn-primary">
+          <app-icon name="file-text" [size]="17"/>
+          <span>Generate Quotation</span>
+        </a>
+      } @else {
+        <button class="btn btn-primary" (click)="confirmSelection()">
+          <app-icon name="check-circle" [size]="17"/>
+          <span>Confirm Selection</span>
+        </button>
+      }
+    </div>
+  </div>
+</div>

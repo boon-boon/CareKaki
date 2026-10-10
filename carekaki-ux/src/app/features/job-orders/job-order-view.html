@@ -1,0 +1,276 @@
+<div class="container">
+  <!-- Page header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Caregiver Job Order</h1>
+      <p class="page-subtitle">Assignment details & dispatch message</p>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button
+      class="tab"
+      [class.active]="activeTab() === 'job-order'"
+      (click)="activeTab.set('job-order')"
+    >
+      <app-icon name="clipboard" [size]="17"/>
+      Job Order
+    </button>
+    <button
+      class="tab"
+      [class.active]="activeTab() === 'whatsapp'"
+      (click)="activeTab.set('whatsapp')"
+    >
+      <app-icon name="message" [size]="17"/>
+      WhatsApp Dispatch
+      <span class="tab-badge">{{ whatsapp.char_count }}</span>
+    </button>
+  </div>
+
+  <!-- ===== TAB: Job Order ===== -->
+  @if (activeTab() === 'job-order') {
+    <div class="doc-paper animate-fade-in">
+      <!-- Doc header -->
+      <div class="doc-header amber">
+        <div class="doc-brand">
+          <div class="doc-logo">
+            <app-icon name="clipboard" [size]="24"/>
+          </div>
+          <div>
+            <span class="doc-brand-name">CareKaki Pro</span>
+            <span class="doc-brand-sub">Caregiver Job Order</span>
+          </div>
+        </div>
+        <div class="doc-title-block">
+          <h2 class="doc-title">JOB ORDER</h2>
+          <span class="doc-id">{{ jobOrder.job_order_id }}</span>
+        </div>
+      </div>
+
+      <div class="doc-body">
+        <!-- Assignment -->
+        <div class="doc-section">
+          <h3 class="section-title"><app-icon name="users" [size]="16"/> Caregiver Assignment</h3>
+          <div class="assignee">
+            <div class="assignee-avatar">{{ jobOrder.caregiver_name.split(' ')[0][0] }}{{ jobOrder.caregiver_name.split(' ')[1]?.[0] ?? '' }}</div>
+            <div class="assignee-info">
+              <span class="assignee-name">{{ jobOrder.caregiver_name }}</span>
+              <span class="assignee-id">{{ jobOrder.caregiver_id }}</span>
+              <div class="cert-list">
+                @for (cert of jobOrder.caregiver_certifications.split(','); track cert) {
+                  <span class="cert-tag">{{ cert.trim() }}</span>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Patient details -->
+        <div class="doc-section">
+          <h3 class="section-title"><app-icon name="heart" [size]="16"/> Patient / Client Details</h3>
+          <dl class="detail-list">
+            <div class="detail-row"><dt>Client Name</dt><dd>{{ jobOrder.client_name }}</dd></div>
+            <div class="detail-row"><dt>Patient Condition</dt><dd>{{ jobOrder.patient_conditions }}</dd></div>
+            <div class="detail-row"><dt>Service Address</dt><dd>{{ jobOrder.service_address }}</dd></div>
+          </dl>
+        </div>
+
+        <!-- Shift schedule -->
+        <div class="doc-section">
+          <h3 class="section-title"><app-icon name="clock" [size]="16"/> Shift Schedule</h3>
+          <div class="shift-grid">
+            <div class="shift-card">
+              <span class="shift-label">Days</span>
+              <span class="shift-value">{{ jobOrder.shift_days }}</span>
+            </div>
+            <div class="shift-card">
+              <span class="shift-label">Hours</span>
+              <span class="shift-value">{{ jobOrder.shift_start }}–{{ jobOrder.shift_end }}</span>
+              <span class="shift-meta">{{ jobOrder.duration_hours }}h/day</span>
+            </div>
+            <div class="shift-card">
+              <span class="shift-label">Start Date</span>
+              <span class="shift-value">{{ formatDate(jobOrder.start_date) }}</span>
+            </div>
+            <div class="shift-card">
+              <span class="shift-label">Expected Duration</span>
+              <span class="shift-value">{{ jobOrder.expected_duration }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Special instructions -->
+        <div class="doc-section">
+          <h3 class="section-title"><app-icon name="alert" [size]="16"/> Special Instructions</h3>
+          <p class="instructions">{{ jobOrder.special_instructions }}</p>
+        </div>
+
+        <!-- Equipment -->
+        <div class="doc-section">
+          <h3 class="section-title"><app-icon name="shield" [size]="16"/> Equipment Needed</h3>
+          <ul class="equipment-list">
+            @for (eq of jobOrder.equipment_list.split('\n'); track eq) {
+              @if (eq.trim()) {
+                <li>{{ eq.replace('•', '').trim() }}</li>
+              }
+            }
+          </ul>
+        </div>
+
+        <!-- Emergency contacts -->
+        <div class="doc-section">
+          <h3 class="section-title"><app-icon name="phone" [size]="16"/> Emergency Contacts</h3>
+          <div class="contact-list">
+            @for (c of jobOrder.emergency_contacts; track c.phone; let i = $index) {
+              <div class="contact-item">
+                <div class="contact-num">{{ i + 1 }}</div>
+                <div class="contact-info">
+                  <span class="contact-name">{{ c.name }}</span>
+                  <span class="contact-phone">{{ c.phone }}</span>
+                </div>
+                <span class="contact-relation">{{ c.relation }}</span>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Care checklist -->
+        <div class="doc-section">
+          <div class="checklist-head">
+            <h3 class="section-title"><app-icon name="check-circle" [size]="16"/> Patient Care Checklist</h3>
+            <span class="progress-pill">{{ checkedItems().size }}/{{ jobOrder.checklist.length }} · {{ progress }}%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" [style.width.%]="progress"></div>
+          </div>
+          <div class="checklist">
+            @for (item of jobOrder.checklist; track item; let i = $index) {
+              <label class="checklist-item" [class.done]="isChecked(i)">
+                <input type="checkbox" [checked]="isChecked(i)" (change)="toggleCheck(i)"/>
+                <span class="checkbox-custom">
+                  @if (isChecked(i)) {
+                    <app-icon name="check-circle" [size]="14"/>
+                  }
+                </span>
+                <span class="checklist-text">{{ item }}</span>
+              </label>
+            }
+          </div>
+        </div>
+      </div>
+
+      <div class="doc-footer">
+        <div class="footer-note">
+          <app-icon name="zap" [size]="15"/>
+          Generated by CareKaki Pro Agentic System
+        </div>
+        <span class="footer-valid">Job Order ID: {{ jobOrder.job_order_id }}</span>
+      </div>
+    </div>
+  }
+
+  <!-- ===== TAB: WhatsApp Dispatch ===== -->
+  @if (activeTab() === 'whatsapp') {
+    <div class="wa-layout animate-fade-in">
+      <!-- Phone mockup -->
+      <div class="phone-mock">
+        <div class="phone-frame">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <!-- WhatsApp header -->
+            <div class="wa-header">
+              <div class="wa-back"><app-icon name="arrow-left" [size]="18"/></div>
+              <div class="wa-avatar">{{ whatsapp.recipient_name.split(' ')[0][0] }}{{ whatsapp.recipient_name.split(' ')[1]?.[0] ?? '' }}</div>
+              <div class="wa-contact">
+                <span class="wa-name">{{ whatsapp.recipient_name }}</span>
+                <span class="wa-status">online</span>
+              </div>
+              <div class="wa-actions">
+                <app-icon name="phone" [size]="16"/>
+                <app-icon name="settings" [size]="16"/>
+              </div>
+            </div>
+            <!-- Chat area -->
+            <div class="wa-chat">
+              <div class="wa-date">TODAY</div>
+              <div class="wa-bubble">
+                <pre class="wa-text">{{ whatsapp.message_text }}</pre>
+                <div class="wa-meta">
+                  <span>11:27 AM</span>
+                  <app-icon name="check-circle" [size]="13"/>
+                </div>
+              </div>
+            </div>
+            <!-- Input bar -->
+            <div class="wa-input">
+              <div class="wa-input-field">Type a message</div>
+              <div class="wa-send"><app-icon name="send" [size]="16"/></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Message details -->
+      <div class="wa-details">
+        <div class="card">
+          <div class="card-header">
+            <div class="header-with-icon">
+              <app-icon name="message" [size]="18"/>
+              <span class="card-title">Dispatch Message</span>
+            </div>
+            <span class="badge" [class.badge-green]="whatsapp.char_count <= 4096" [class.badge-red]="whatsapp.char_count > 4096">
+              {{ whatsapp.char_count }} / 4096 chars
+            </span>
+          </div>
+          <div class="card-body">
+            <dl class="detail-list">
+              <div class="detail-row"><dt>Message ID</dt><dd>{{ whatsapp.message_id }}</dd></div>
+              <div class="detail-row"><dt>Recipient</dt><dd>{{ whatsapp.recipient_name }} ({{ whatsapp.recipient_id }})</dd></div>
+              <div class="detail-row"><dt>Channel</dt><dd><span class="badge badge-green">WhatsApp</span></dd></div>
+              <div class="detail-row"><dt>Status</dt><dd><span class="badge badge-blue">Ready to send</span></dd></div>
+            </dl>
+          </div>
+        </div>
+
+        <!-- Validation checks -->
+        <div class="card">
+          <div class="card-header">
+            <div class="header-with-icon">
+              <app-icon name="shield" [size]="18"/>
+              <span class="card-title">Validation Checks</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="validation-list">
+              <div class="validation-item pass">
+                <app-icon name="check-circle" [size]="16"/>
+                <span>VAL-03: Message ≤ 4096 characters</span>
+              </div>
+              <div class="validation-item pass">
+                <app-icon name="check-circle" [size]="16"/>
+                <span>VAL-04: caregiver_id exists in roster</span>
+              </div>
+              <div class="validation-item pass">
+                <app-icon name="check-circle" [size]="16"/>
+                <span>No unresolved template tokens</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="wa-actions-col">
+          <button class="btn btn-primary btn-block" (click)="copyMessage()">
+            <app-icon [name]="copied() ? 'check-circle' : 'copy'" [size]="18"/>
+            {{ copied() ? 'Copied to clipboard!' : 'Copy Message' }}
+          </button>
+          <a routerLink="/quotations" class="btn btn-outline btn-block">
+            <app-icon name="file-text" [size]="18"/>
+            View Quotation
+          </a>
+        </div>
+      </div>
+    </div>
+  }
+</div>

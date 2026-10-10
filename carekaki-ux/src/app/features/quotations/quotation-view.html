@@ -1,0 +1,234 @@
+<div class="container">
+  <!-- Page header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Client Quotation</h1>
+      <p class="page-subtitle">Generated document with SST 8% applied</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline" (click)="copyQuotation()">
+        <app-icon [name]="copied() ? 'check-circle' : 'copy'" [size]="17"/>
+        {{ copied() ? 'Copied!' : 'Copy' }}
+      </button>
+      <button class="btn btn-primary">
+        <app-icon name="download" [size]="17"/>
+        <span class="hide-mobile">Download</span> MD
+      </button>
+    </div>
+  </div>
+
+  <!-- Document paper -->
+  <div class="doc-paper">
+    <!-- Doc header -->
+    <div class="doc-header">
+      <div class="doc-brand">
+        <div class="doc-logo">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </div>
+        <div>
+          <span class="doc-brand-name">CareKaki Pro</span>
+          <span class="doc-brand-sub">Agentic Care Operations</span>
+        </div>
+      </div>
+      <div class="doc-title-block">
+        <h2 class="doc-title">CLIENT QUOTATION</h2>
+        <span class="doc-id">{{ quotation.quotation_id }}</span>
+      </div>
+    </div>
+
+    <!-- Meta row -->
+    <div class="doc-meta">
+      <div class="meta-block">
+        <span class="meta-label">Date Issued</span>
+        <span class="meta-value">{{ formatDate(quotation.date_issued) }}</span>
+      </div>
+      <div class="meta-block">
+        <span class="meta-label">Valid Until</span>
+        <span class="meta-value">{{ formatDate(quotation.valid_until) }}</span>
+      </div>
+      <div class="meta-block">
+        <span class="meta-label">Currency</span>
+        <span class="meta-value">MYR (RM)</span>
+      </div>
+    </div>
+
+    <!-- Client & service details -->
+    <div class="doc-sections">
+      <div class="doc-section">
+        <h3 class="section-title">
+          <app-icon name="users" [size]="16"/>
+          Client Details
+        </h3>
+        <dl class="detail-list">
+          <div class="detail-row">
+            <dt>Client Name</dt>
+            <dd>{{ quotation.client_name }}</dd>
+          </div>
+          <div class="detail-row">
+            <dt>Contact</dt>
+            <dd>{{ quotation.client_contact }}</dd>
+          </div>
+          <div class="detail-row">
+            <dt>Service Address</dt>
+            <dd>{{ quotation.service_address }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="doc-section">
+        <h3 class="section-title">
+          <app-icon name="heart" [size]="16"/>
+          Service Summary
+        </h3>
+        <dl class="detail-list">
+          <div class="detail-row">
+            <dt>Service Type</dt>
+            <dd><span class="badge badge-blue">Nursing</span></dd>
+          </div>
+          <div class="detail-row">
+            <dt>Assigned Caregiver</dt>
+            <dd>{{ quotation.caregiver_name }} ({{ quotation.caregiver_id }})</dd>
+          </div>
+          <div class="detail-row">
+            <dt>Certifications</dt>
+            <dd>{{ quotation.caregiver_certifications }}</dd>
+          </div>
+          <div class="detail-row">
+            <dt>Shift Schedule</dt>
+            <dd>{{ quotation.shift_days }}, {{ quotation.shift_start }}–{{ quotation.shift_end }}</dd>
+          </div>
+          <div class="detail-row">
+            <dt>Start Date</dt>
+            <dd>{{ formatDate(quotation.start_date) }}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
+    <!-- Cost breakdown -->
+    <div class="doc-section full">
+      <h3 class="section-title">
+        <app-icon name="dollar" [size]="16"/>
+        Cost Breakdown
+      </h3>
+
+      <!-- Desktop table -->
+      <div class="cost-table-wrap">
+        <table class="cost-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="num">Rate (RM/hr)</th>
+              <th class="num">Hours</th>
+              <th class="num">Days</th>
+              <th class="num">Subtotal (RM)</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of quotation.line_items; track item.description) {
+              <tr>
+                <td>{{ item.description }}</td>
+                <td class="num">{{ item.rate_myr.toFixed(2) }}</td>
+                <td class="num">{{ item.hours }}</td>
+                <td class="num">{{ item.days }}</td>
+                <td class="num">{{ item.subtotal_myr.toFixed(2) }}</td>
+              </tr>
+            }
+            <tr class="row-subtotal">
+              <td colspan="4">Subtotal</td>
+              <td class="num">{{ quotation.subtotal.toFixed(2) }}</td>
+            </tr>
+            <tr class="row-sst">
+              <td colspan="4">SST (8%)</td>
+              <td class="num">{{ quotation.sst_amount.toFixed(2) }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="row-total">
+              <td colspan="4">Total Payable</td>
+              <td class="num">{{ formatMYR(quotation.total) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Mobile cost cards -->
+      <div class="cost-mobile">
+        @for (item of quotation.line_items; track item.description) {
+          <div class="cost-mobile-item">
+            <span class="cmi-desc">{{ item.description }}</span>
+            <div class="cmi-grid">
+              <div><span>Rate</span><strong>RM {{ item.rate_myr.toFixed(2) }}/hr</strong></div>
+              <div><span>Hours</span><strong>{{ item.hours }}h</strong></div>
+              <div><span>Days</span><strong>{{ item.days }}</strong></div>
+            </div>
+            <div class="cmi-subtotal">
+              <span>Subtotal</span>
+              <strong>RM {{ item.subtotal_myr.toFixed(2) }}</strong>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Totals -->
+      <div class="totals">
+        <div class="total-row">
+          <span>Subtotal</span>
+          <span>{{ formatMYR(quotation.subtotal) }}</span>
+        </div>
+        <div class="total-row sst">
+          <span>SST (8%)</span>
+          <span>{{ formatMYR(quotation.sst_amount) }}</span>
+        </div>
+        <div class="total-row grand">
+          <span>Total Payable</span>
+          <span>{{ formatMYR(quotation.total) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Terms -->
+    <div class="doc-section full">
+      <h3 class="section-title">
+        <app-icon name="shield" [size]="16"/>
+        Terms &amp; Conditions
+      </h3>
+      <ol class="terms-list">
+        @for (term of terms; track term) {
+          <li>{{ term }}</li>
+        }
+      </ol>
+    </div>
+
+    <!-- Footer -->
+    <div class="doc-footer">
+      <div class="footer-note">
+        <app-icon name="zap" [size]="15"/>
+        Prepared by CareKaki Pro Agentic System
+      </div>
+      <span class="footer-valid">Valid for 7 days from issue date</span>
+    </div>
+  </div>
+
+  <!-- Next steps -->
+  <div class="next-steps">
+    <a routerLink="/job-orders" class="next-step-card">
+      <div class="ns-icon" data-color="amber"><app-icon name="clipboard" [size]="20"/></div>
+      <div class="ns-text">
+        <span class="ns-title">View Caregiver Job Order</span>
+        <span class="ns-desc">Assignment details for {{ quotation.caregiver_name }}</span>
+      </div>
+      <app-icon name="arrow-right" [size]="18"/>
+    </a>
+    <a routerLink="/roster" class="next-step-card">
+      <div class="ns-icon" data-color="blue"><app-icon name="users" [size]="20"/></div>
+      <div class="ns-text">
+        <span class="ns-title">Back to Roster</span>
+        <span class="ns-desc">Browse all caregivers</span>
+      </div>
+      <app-icon name="arrow-right" [size]="18"/>
+    </a>
+  </div>
+</div>
