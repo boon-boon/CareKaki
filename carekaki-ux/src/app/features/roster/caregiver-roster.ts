@@ -89,7 +89,7 @@ export class CaregiverRoster implements OnInit {
       const res = await this.mcp.listProviders(filters);
       this.mcpProviders.set(res.providers || []);
     } catch (err) {
-      console.warn('Failed to load MCP providers, using fallback:', err);
+      console.warn('Failed to load live providers, using built-in reference data:', err);
     } finally {
       this.mcpLoading.set(false);
     }

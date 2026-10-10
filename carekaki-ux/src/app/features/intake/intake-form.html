@@ -3,7 +3,7 @@
   <div class="page-header">
     <div>
       <h1 class="page-title">New Client Intake & NLP Parser</h1>
-      <p class="page-subtitle">Describe care requests in natural language — integrated with CareKaki MCP Engine</p>
+      <p class="page-subtitle">Describe care requests in natural language and review the parsed requirements</p>
     </div>
     <div style="display: flex; gap: 10px;">
       <a routerLink="/matching" class="btn btn-primary">
@@ -93,7 +93,7 @@
           </div>
         }
 
-        <!-- One-tap options offered by the MCP itself -->
+        <!-- One-tap options offered by the service -->
         @if (clarifyOptions().length) {
           <div class="clarify-suggestions">
             <span class="suggestions-label">Choose:</span>
@@ -225,7 +225,7 @@
                   <span>Extracting...</span>
                 } @else {
                   <app-icon name="zap" [size]="17"/>
-                  <span>Parse & Check MCP</span>
+                  <span>Find Caregivers</span>
                 }
               </button>
             </div>
@@ -233,14 +233,13 @@
         </div>
       </div>
 
-      <!-- Example prompts with MCP Test Case -->
+      <!-- Example requests -->
       <div class="card">
         <div class="card-header">
           <div class="header-with-icon">
             <app-icon name="star" [size]="18"/>
-            <span class="card-title">Pre-configured Test Prompts</span>
+            <span class="card-title">Example Requests</span>
           </div>
-          <span class="badge badge-teal">One-click test</span>
         </div>
         <div class="card-body">
           <div class="example-chips">
@@ -258,7 +257,7 @@
       </div>
     </div>
 
-    <!-- ===== Right: Extraction result & MCP State Machine ===== -->
+    <!-- ===== Right: Extraction result & request status ===== -->
     <div class="intake-col">
       <!-- Empty state -->
       @if (!parsed() && !parsing()) {
@@ -270,7 +269,7 @@
             <h3 class="empty-title">Ready for Caregiver Intake</h3>
             <p class="empty-text">
               Type a care request or click any prompt on the left. The agent extracts structured parameters,
-              validates them against the MCP state machine, and suggests suitable caregivers.
+              validates them against the requirement rules, and suggests suitable caregivers.
             </p>
             <div class="slot-preview">
               @for (slot of ['City Location', 'Care Service', 'Date & Time', 'Duration', 'MYR Budget']; track slot) {
@@ -287,7 +286,7 @@
           <div class="card-header">
             <div class="header-with-icon">
               <span class="spinner spinner-teal"></span>
-              <span class="card-title">Extracting entities & calling MCP...</span>
+              <span class="card-title">Extracting entities...</span>
             </div>
           </div>
           <div class="card-body">
@@ -335,7 +334,7 @@
             </div>
             <button class="btn btn-outline btn-sm" (click)="validateWithMcp()" [disabled]="mcpValidating()">
               <app-icon name="refresh" [size]="14"/>
-              <span>{{ mcpValidating() ? 'Re-validating...' : 'Re-check MCP' }}</span>
+              <span>{{ mcpValidating() ? 'Re-validating...' : 'Re-check Requirements' }}</span>
             </button>
           </div>
           <div class="card-body">
@@ -429,7 +428,7 @@
           </div>
         </div>
 
-        <!-- ===== MCP Validation & Clarification Engine Card ===== -->
+        <!-- ===== Validation & Clarification Engine Card ===== -->
         @if (mcpError(); as mcpErr) {
           <div class="card mcp-error-card">
             <div class="card-body">
@@ -446,7 +445,7 @@
             <div class="card-header">
               <div class="header-with-icon">
                 <app-icon name="terminal" [size]="18"/>
-                <span class="card-title">CareKaki MCP State: <code>{{ val.status }}</code></span>
+                <span class="card-title">Request Status: <code>{{ val.status }}</code></span>
               </div>
               <span
                 class="badge"
@@ -466,7 +465,7 @@
                     <app-icon name="alert" [size]="20"/>
                     <div class="prompt-text">
                       <strong>{{ val.question.text }}</strong>
-                      <span class="prompt-hint">Question from <code>carekaki_validate_request</code> · field <code>{{ val.question.field }}</code></span>
+                      <p class="prompt-hint">Question from the intake validator · field <code>{{ val.question.field }}</code></p>
                     </div>
                   </div>
                   <button class="btn btn-primary" (click)="openClarifyPanel()">
@@ -506,7 +505,7 @@
                   <div class="confirm-actions">
                     <button class="btn btn-primary" (click)="confirmAndSearchMcp()">
                       <app-icon name="check-circle" [size]="18"/>
-                      <span>Confirm & Search Care Providers (MCP)</span>
+                      <span>Confirm & Search Caregivers</span>
                     </button>
                   </div>
                 </div>
@@ -519,7 +518,7 @@
                     <app-icon name="check-circle" [size]="24"/>
                     <div>
                       <h4 class="valid-title">Requirements Validated & Confirmed</h4>
-                      <p class="valid-sub">Ready to match against 20 fictional caregivers via <code>carekaki_search_providers</code>.</p>
+                      <p class="valid-sub">Ready to match against 20 caregivers.</p>
                     </div>
                   </div>
                   <a routerLink="/matching" class="btn btn-primary btn-block">

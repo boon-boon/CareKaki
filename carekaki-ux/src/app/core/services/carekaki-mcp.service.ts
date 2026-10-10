@@ -69,7 +69,7 @@ export class CareKakiMcpService {
       this.status.set('online');
       return true;
     } catch (err) {
-      console.warn('CareKaki MCP server offline or unreachable, falling back to mock mode:', err);
+      console.warn('CareKaki service unreachable, using built-in reference data:', err);
       this.status.set('offline');
       return false;
     }
@@ -99,7 +99,7 @@ export class CareKakiMcpService {
     });
 
     if (!res.ok) {
-      throw new Error(`MCP HTTP Error: ${res.status} ${res.statusText}`);
+      throw new Error(`Service request failed: ${res.status} ${res.statusText}`);
     }
 
     const contentType = res.headers.get('content-type') || '';
@@ -108,14 +108,14 @@ export class CareKakiMcpService {
     let jsonResponse: any;
     if (contentType.includes('text/event-stream')) {
       const dataLine = text.split(/\r?\n/).find(line => line.startsWith('data: '));
-      if (!dataLine) throw new Error('Invalid SSE response from MCP server: missing data line');
+      if (!dataLine) throw new Error('Invalid response from CareKaki service: missing data line');
       jsonResponse = JSON.parse(dataLine.slice(6));
     } else {
       jsonResponse = JSON.parse(text);
     }
 
     if (jsonResponse.error) {
-      throw new Error(`MCP Error [${jsonResponse.error.code}]: ${jsonResponse.error.message}`);
+      throw new Error(`CareKaki service error [${jsonResponse.error.code}]: ${jsonResponse.error.message}`);
     }
 
     return jsonResponse.result;

@@ -3,7 +3,7 @@
   <div class="page-header">
     <div>
       <h1 class="page-title">Caregiver & Provider Roster</h1>
-      <p class="page-subtitle">Master care worker directory integrated with CareKaki MCP Protocol</p>
+      <p class="page-subtitle">Master care worker directory</p>
     </div>
   </div>
 
@@ -15,9 +15,9 @@
       (click)="setTab('mcp')"
     >
       <app-icon name="zap" [size]="16"/>
-      <span>MCP Provider Catalogue (carekaki_providers_demo.csv)</span>
+      <span>Provider Catalogue</span>
       <span class="tab-badge" [class.badge-green]="mcp.isOnline()">
-        {{ catalogueTotal() }} Providers · {{ mcp.isOnline() ? 'Live MCP' : 'Local Mode' }}
+        {{ catalogueTotal() }} Providers · {{ mcp.isOnline() ? 'Live' : 'Offline' }}
       </span>
     </button>
     <button
@@ -31,7 +31,7 @@
     </button>
   </div>
 
-  <!-- ===== Mode 1: MCP Provider Catalogue ===== -->
+  <!-- ===== Mode 1: Provider Catalogue ===== -->
   @if (rosterTab() === 'mcp') {
     <!-- Summary strip -->
     <div class="summary-strip">
@@ -51,12 +51,12 @@
       </div>
       <div class="summary-divider hide-mobile"></div>
       <div class="summary-item hide-mobile">
-        <span class="summary-value" style="font-size: 1rem; color: var(--teal-700);">carekaki_list_providers</span>
-        <span class="summary-label">Active MCP Tool</span>
+        <span class="summary-value" style="font-size: 1rem; color: var(--teal-700);">Provider Catalogue</span>
+        <span class="summary-label">Data Source</span>
       </div>
     </div>
 
-    <!-- MCP Filter bar -->
+    <!-- Filter bar -->
     <div class="card filter-card">
       <div class="card-body">
         <div class="filter-row">
@@ -113,14 +113,14 @@
 
     <!-- Results count & refresh -->
     <div class="results-count" style="display: flex; justify-content: space-between; align-items: center;">
-      <span>Showing <strong>{{ mcpProviders().length }}</strong> providers from <code>carekaki_providers_demo.csv</code></span>
+      <span>Showing <strong>{{ mcpProviders().length }}</strong> providers</span>
       <button class="btn btn-outline btn-sm" (click)="loadMcpProviders()" [disabled]="mcpLoading()">
         <app-icon name="refresh" [size]="14"/>
         <span>{{ mcpLoading() ? 'Loading...' : 'Refresh Catalogue' }}</span>
       </button>
     </div>
 
-    <!-- MCP Provider Table -->
+    <!-- Provider Table -->
     @if (mcpProviders().length > 0) {
       <div class="card roster-table-view">
         <div class="table-wrap">
@@ -134,7 +134,7 @@
                 <th>Verified</th>
                 <th>Services</th>
                 <th>Languages</th>
-                <th>Demo Availability Windows</th>
+                <th>Availability Windows</th>
               </tr>
             </thead>
             <tbody>
@@ -217,7 +217,7 @@
     }
   }
 
-  <!-- ===== Mode 2: Staff Roster (Spec Reference) ===== -->
+  <!-- ===== Mode 2: Staff Roster (Reference) ===== -->
   @if (rosterTab() === 'staff') {
     <!-- Summary strip -->
     <div class="summary-strip">

@@ -66,11 +66,11 @@ export class QuotationView {
       const provider = response.provider;
       if (response.status !== 'found' || !provider || provider.provider_id !== id ||
           !Number.isFinite(provider.hourly_rate) || provider.hourly_rate <= 0) {
-        throw new Error('Selected caregiver could not be resolved to a valid MCP rate.');
+        throw new Error('Selected caregiver could not be resolved to a valid rate.');
       }
       this.quotation = this.buildQuotation({ id, name: provider.name, hourlyRate: provider.hourly_rate });
     } catch (error) {
-      this.quotationError.set('Unable to load the selected caregiver’s live hourly rate. Please reconnect to MCP and reopen this quotation.');
+      this.quotationError.set('Unable to load the selected caregiver’s live hourly rate. Please reconnect and reopen this quotation.');
       console.warn('Live quotation pricing unavailable:', error);
     } finally {
       this.quotationLoading.set(false);

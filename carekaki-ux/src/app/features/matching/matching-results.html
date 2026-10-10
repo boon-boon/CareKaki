@@ -3,7 +3,7 @@
   <div class="page-header">
     <div>
       <h1 class="page-title">Caregiver Matching & Ranking</h1>
-      <p class="page-subtitle">Multi-criteria matching engine powered by CareKaki MCP Protocol</p>
+      <p class="page-subtitle">Multi-criteria matching engine</p>
     </div>
     <div style="display: flex; gap: 8px;">
       <button class="btn btn-outline btn-sm" (click)="toggleDiagnostics()">
@@ -25,9 +25,9 @@
       (click)="setTab('mcp')"
     >
       <app-icon name="zap" [size]="16"/>
-      <span>Live CareKaki MCP Engine (carekaki_providers_demo.csv)</span>
+      <span>Live Caregiver Matching</span>
       <span class="tab-badge" [class.badge-green]="mcp.isOnline()">
-        {{ mcp.isOnline() ? 'Live Connected' : 'Local Standby' }}
+        {{ mcp.isOnline() ? 'Live' : 'Unavailable' }}
       </span>
     </button>
     <button
@@ -36,18 +36,18 @@
       (click)="setTab('spec')"
     >
       <app-icon name="clipboard" [size]="16"/>
-      <span>Spec Reference Candidates (100.0, 90.0, 80.0)</span>
+      <span>Reference Candidates</span>
     </button>
   </div>
 
-  <!-- ===== Tab 1: Live MCP Matching ===== -->
+  <!-- ===== Tab 1: Live Caregiver Matching ===== -->
   @if (activeTab() === 'mcp') {
     <!-- Search Query Controls -->
     <div class="card search-control-card">
       <div class="card-header">
         <div class="header-with-icon">
           <app-icon name="search" [size]="17"/>
-          <span class="card-title">Live Search Criteria (Sent to <code>carekaki_search_providers</code>)</span>
+          <span class="card-title">Live Search Criteria</span>
         </div>
         <button class="btn btn-primary btn-sm" (click)="runMcpSearch()" [disabled]="mcpLoading()">
           @if (mcpLoading()) {
@@ -139,11 +139,11 @@
       </div>
     </div>
 
-    <!-- MCP Scoring formula callout -->
+    <!-- Ranking method callout -->
     <div class="formula-callout">
       <app-icon name="zap" [size]="16"/>
       <span class="formula-text">
-        {{ inferenceMode() === 'ai' ? 'Gemini suitability ranking based on verified provider data. The previous numeric formula is not an AI score.' : 'Deterministic fallback ranking: Rating 50%, Affordability 35%, Language 15%.' }} All five eligibility criteria (location, services, verification, availability and budget) remain mandatory.
+        {{ inferenceMode() === 'ai' ? 'Gemini suitability ranking based on verified provider data.' : 'Ranking based on rating (50%), affordability (35%), and language (15%).' }} All five eligibility criteria (location, services, verification, availability and budget) remain mandatory.
       </span>
     </div>
 
@@ -165,7 +165,7 @@
       </div>
     }
 
-    <!-- Candidate cards (MCP matches) -->
+    <!-- Candidate cards (live matches) -->
     @if (mcpLoading()) {
       <div class="card" style="padding: 24px;">Checking provider eligibility...</div>
     } @else if (mcpMatches().length > 0) {
@@ -341,7 +341,7 @@
     }
   }
 
-  <!-- ===== Tab 2: Spec Reference Candidates ===== -->
+  <!-- ===== Tab 2: Reference Candidates ===== -->
   @if (activeTab() === 'spec') {
     <div class="candidate-list">
       @for (c of specCandidates; track c.caregiver_id) {
@@ -427,15 +427,15 @@
     </div>
   }
 
-  <!-- ===== Diagnostics Accordion (MCP Tool: carekaki_explain_matching) ===== -->
+  <!-- ===== Diagnostics Accordion (eligibility breakdown) ===== -->
   @if (showDiagnostics()) {
     <div class="card diagnostics-card animate-fade-in">
       <div class="card-header">
         <div class="header-with-icon">
           <app-icon name="activity" [size]="18"/>
-          <span class="card-title">Eligibility Diagnostics (All 20 Providers)</span>
+          <span class="card-title">Eligibility Diagnostics (All Providers)</span>
         </div>
-        <span class="badge badge-teal">carekaki_explain_matching</span>
+        <span class="badge badge-teal">Eligibility check</span>
       </div>
       <div class="card-body">
         <p class="diag-intro">
@@ -446,7 +446,7 @@
         @if (diagnosticsLoading()) {
           <div style="padding: 24px; text-align: center;">
             <span class="spinner spinner-teal"></span>
-            <p style="margin-top: 8px; color: var(--text-secondary); font-size: 0.85rem;">Querying MCP diagnostics tool...</p>
+            <p style="margin-top: 8px; color: var(--text-secondary); font-size: 0.85rem;">Running eligibility check...</p>
           </div>
         } @else {
           <div class="diag-table-wrap">
@@ -517,7 +517,7 @@
       <div class="card-header">
         <div class="header-with-icon">
           <app-icon name="file-text" [size]="18"/>
-          <span class="card-title">Handoff Payload → DocumentGeneratorAgent</span>
+          <span class="card-title">Quotation Handoff Data</span>
         </div>
         <button class="btn btn-ghost btn-sm" (click)="copyPayload()">
           <app-icon name="copy" [size]="15"/>
@@ -534,7 +534,7 @@
   <div class="confirm-bar">
     <div class="confirm-info">
       @if (activeTab() === 'mcp' && selectedMcp(); as s) {
-        <span class="confirm-label">Selected MCP Provider</span>
+        <span class="confirm-label">Selected Caregiver</span>
         <span class="confirm-name">{{ s.name }} ({{ s.provider_id }}) · Est. RM {{ s.estimated_cost }}</span>
       } @else if (activeTab() === 'mcp' && reviewedAlternativeId()) {
         <span class="confirm-label">Selected for follow-up review — not submitted or booked</span>
