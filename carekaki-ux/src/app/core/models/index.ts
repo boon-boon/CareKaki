@@ -31,10 +31,14 @@ export interface IntakeEntities {
   location_zone: string;
   shift_hours: ShiftHours;
   patient_conditions: string;
-  start_date: string; // YYYY-MM-DD
+  start_date: string; // YYYY-MM-DD (first concrete occurrence for recurring schedules)
   estimated_weeks?: number | null;
   max_budget?: number;
   required_services?: string[];
+  /** Recurring weekly days-of-week parsed from natural language, e.g. ['Sat','Sun'] */
+  schedule_days?: string[];
+  /** Concrete upcoming dates expanded from a recurring schedule (>= 2 entries) */
+  schedule_dates?: string[];
 }
 
 export interface IntakeResult {

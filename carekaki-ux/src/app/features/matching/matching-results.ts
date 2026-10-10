@@ -46,11 +46,44 @@ export class MatchingResults implements OnInit {
   readonly showPayload = signal(false);
   readonly confirmed = signal(false);
 
+  /** Recurring schedule dates carried over from the Intake view (if any). */
+  readonly scheduleDates = signal<string[]>([]);
+
   /** Scoring weights per spec */
   readonly weights = { proximity: 0.40, skill: 0.35, availability: 0.25 };
 
+  private static readonly CITY_OPTIONS = ['Petaling Jaya', 'Subang Jaya', 'Kuala Lumpur', 'Shah Alam', 'Cheras'];
+
   ngOnInit() {
+    this.seedFromIntake();
     this.runMcpSearch();
+  }
+
+  /** Apply the intake entities + recurring schedule chosen on the Intake page. */
+  private seedFromIntake() {
+    const ai = this.data.activeIntake();
+    if (!ai) return;
+    const zone = ai.location_zone || ai.location || '';
+    const city = MatchingResults.CITY_OPTIONS.find(c => zone.includes(c)) || MatchingResults.CITY_OPTIONS.find(c => (ai.location || '').includes(c));
+    if (city) this.searchCity.set(city);
+    if (ai.start_date) this.searchDate.set(ai.start_date);
+    if (ai.shift_hours?.start) this.searchTime.set(ai.shift_hours.start);
+    if (ai.shift_hours?.duration_hours) this.searchDuration.set(ai.shift_hours.duration_hours);
+    if (ai.required_services?.length) this.searchService.set(ai.required_services[0]);
+    if (ai.max_budget) this.searchBudget.set(ai.max_budget);
+    this.scheduleDates.set(this.data.activeScheduleDates());
+  }
+
+  /** Switch the active search date to one of the recurring schedule dates. */
+  useScheduleDate(iso: string) {
+    this.searchDate.set(iso);
+    this.runMcpSearch();
+  }
+
+  shortDate(iso: string): string {
+    if (!iso) return '';
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-MY', { weekday: 'short', day: 'numeric', month: 'short' });
   }
 
   setTab(tab: 'mcp' | 'spec') {

@@ -81,9 +81,23 @@
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Date (Demo: 2026-10-17)</label>
+            <label class="form-label">Date</label>
             <input type="date" class="input" [ngModel]="searchDate()" (ngModelChange)="searchDate.set($event); runMcpSearch()"/>
           </div>
+          @if (scheduleDates().length > 1) {
+            <div class="form-group form-group-full">
+              <label class="form-label">Recurring schedule — switch occurrence to search</label>
+              <div class="schedule-chip-row">
+                @for (d of scheduleDates(); track d) {
+                  <button
+                    class="schedule-chip"
+                    [class.active]="d === searchDate()"
+                    (click)="useScheduleDate(d)"
+                  >{{ shortDate(d) }}</button>
+                }
+              </div>
+            </div>
+          }
           <div class="form-group">
             <label class="form-label">Start Time</label>
             <select class="select" [ngModel]="searchTime()" (ngModelChange)="searchTime.set($event); runMcpSearch()">
