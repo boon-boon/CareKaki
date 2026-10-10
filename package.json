@@ -21,7 +21,9 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "ux:build": "npm --prefix carekaki-ux run build",
-    "ux:start": "npm --prefix carekaki-ux start"
+    "ux:start": "npm --prefix carekaki-ux start",
+    "build:all": "npm run build && npm run ux:build",
+    "serve:prod": "node scripts/serve-prod.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/express": "^2.0.2",

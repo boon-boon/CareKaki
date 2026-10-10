@@ -18,11 +18,11 @@ export interface McpCallLog {
 
 @Injectable({ providedIn: 'root' })
 export class CareKakiMcpService {
-  // Use relative endpoint if running via dev-server proxy, fallback to direct port 3000
+  // Always call the API on the same origin: in production the MCP server serves
+  // this SPA on one port, and `ng serve` proxies /mcp to 127.0.0.1:3000 (see proxy.conf.json).
+  // Set globalThis.__CAREKAKI_MCP_URL__ at runtime to point at a different endpoint.
   readonly serverUrl = signal<string>(
-    typeof window !== 'undefined' && window.location && window.location.port === '4200'
-      ? '/mcp'
-      : 'http://127.0.0.1:3000/mcp'
+    (globalThis as { __CAREKAKI_MCP_URL__?: string }).__CAREKAKI_MCP_URL__ ?? '/mcp'
   );
   readonly status = signal<'online' | 'offline' | 'checking'>('checking');
   readonly serverInfo = signal<{ name: string; version: string; tools: string[] } | null>(null);

@@ -221,7 +221,7 @@ export interface ActivityItem {
 
 /* ============================================================
    CareKaki MCP Integration Types
-   Mirroring tools on http://127.0.0.1:3000/mcp
+   Mirroring the MCP tools served on the same origin (relative /mcp)
    ============================================================ */
 
 export interface McpChoice {
