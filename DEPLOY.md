@@ -66,9 +66,23 @@ Output lands in `carekaki-ux/dist/carekaki-ux/browser/` (contains `index.html`,
 | `PORT` | `3000` | The single public HTTP port. |
 | `NODE_ENV` | _(unset)_ | When `production`, the default bind host becomes `0.0.0.0` (public). Otherwise the default stays loopback `127.0.0.1`. |
 | `HOST` | `127.0.0.1` (dev) / `0.0.0.0` (production) | Bind address. Overrides the default above. |
-| `ALLOWED_ORIGINS` | _(none)_ | Comma-separated extra Origin hostnames allowed to call `/mcp` (e.g. `myapp.example.com,carekaki.example.com`). Loopback names are always allowed. No wildcard is honoured. |
-| `ALLOWED_HOSTS` | _(none)_ | Comma-separated extra Host header hostnames accepted when binding off the loopback (DNS-rebinding protection). Only needed if the platform sends a name other than the loopback names. |
+| `ALLOWED_ORIGINS` | _(none)_ | Comma-separated extra Origin hostnames allowed to call `/mcp` (e.g. `myapp.example.com,carekaki.example.com`). Loopback names are always allowed. Set `*` to disable the Origin guard entirely. |
+| `ALLOWED_HOSTS` | _(none)_ | Comma-separated extra Host header hostnames accepted when binding off the loopback (DNS-rebinding protection). Set `*` to disable the Host guard entirely. `npm run serve:prod` sets `*` automatically when running publicly (see below). |
+| `PUBLIC_URL` | _(none)_ | Full public URL of the deployment; its hostname is auto-added to `ALLOWED_HOSTS`. Preferred over `*` when you know the domain. |
+| `CAREKAKI_STRICT_HOSTS` | _(none)_ | Set to `1` to keep the strict host/origin guard even behind a public proxy. |
 | `CAREKAKI_PROVIDERS_CSV` | `./carekaki_providers_demo.csv` | Path to the provider CSV (relative paths resolve from the repo root). |
+
+### Public hosting and the host guard
+
+Because a hosted deployment binds `0.0.0.0`, the DNS-rebinding guard that
+protects a loopback-only dev server would reject every request whose `Host`
+header is not allow-listed — including the platform's own public hostname. To
+avoid a deployed-but-unreachable service, `npm run serve:prod` disables the
+guard by default (hosts/origins `*`) unless you provide `PUBLIC_URL` or
+`ALLOWED_HOSTS`, or set `CAREKAKI_STRICT_HOSTS=1`.
+
+The guard is a convenience, **not** authentication. The security note below
+still applies in full: this demo has no auth and must not carry real data.
 
 Runtime frontend override: set `globalThis.__CAREKAKI_MCP_URL__` before the app
 boots to point the SPA at a different MCP endpoint. By default the SPA calls the

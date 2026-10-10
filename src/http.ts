@@ -25,6 +25,12 @@ function parseList(value: string | undefined): string[] {
   return value ? value.split(",").map(item => item.trim()).filter(Boolean) : [];
 }
 
+/** Extract the hostname from a full URL, tolerating a bare host or host:port. */
+function hostnameOf(value: string): string {
+  try { return new URL(value).hostname; }
+  catch { return value.replace(/^[a-z]+:\/\//i, "").split("/")[0]?.split(":")[0] ?? value; }
+}
+
 /** Local, stateless HTTP service. In production this single port also serves the SPA. */
 export function startHttpServer(port = Number(process.env.PORT ?? 3000)) {
   const host = process.env.HOST ?? (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
@@ -32,10 +38,23 @@ export function startHttpServer(port = Number(process.env.PORT ?? 3000)) {
   loadProviders();
 
   const loopback = ["127.0.0.1", "localhost", "::1"];
-  const allowedOrigins = [...loopback, ...parseList(process.env.ALLOWED_ORIGINS)];
+  const extraOrigins = parseList(process.env.ALLOWED_ORIGINS);
+  // A literal "*" disables the guard entirely (see CAREKAKI_TRUST_ANY_HOST below).
+  const trustAnyHost = extraOrigins.includes("*") || parseList(process.env.ALLOWED_HOSTS).includes("*");
+  const allowedOrigins = trustAnyHost ? undefined : [...loopback, ...extraOrigins];
   // When binding off the loopback, still restrict accepted Host headers (DNS-rebinding
   // protection) to the loopback names plus any explicitly configured public hostnames.
-  const allowedHosts = loopback.includes(host) ? undefined : [...loopback, ...parseList(process.env.ALLOWED_HOSTS)];
+  // Hosted platforms usually pass no such config, so also derive it from PUBLIC_URL
+  // (or the common platform URL vars) to avoid rejecting every public request.
+  const publicHosts: string[] = [];
+  const urlVars = [process.env.PUBLIC_URL, process.env.APP_URL, process.env.RENDER_EXTERNAL_URL];
+  for (const candidate of urlVars) {
+    if (typeof candidate !== "string" || candidate.length === 0) continue;
+    publicHosts.push(hostnameOf(candidate));
+  }
+  const allowedHosts = loopback.includes(host) || trustAnyHost
+    ? undefined
+    : [...loopback, ...parseList(process.env.ALLOWED_HOSTS), ...publicHosts].filter(Boolean);
 
   const handler = createMcpHandler(() => createServer());
   const app = createMcpExpressApp({ host, allowedHosts, allowedOrigins });

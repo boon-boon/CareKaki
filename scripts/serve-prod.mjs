@@ -7,6 +7,15 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 process.env.NODE_ENV = "production";
 
+// Behind a public reverse proxy the DNS-rebinding host guard would reject every
+// request unless the exact public hostname is allow-listed. Platforms rarely
+// inject a usable URL var, so default to disabling the guard for public hosting
+// (hosts/origins = "*" in http.ts). Lock it down by setting ALLOWED_HOSTS to the
+// explicit hostname, or CAREKAKI_STRICT_HOSTS=1 to keep the guard strict.
+if (!process.env.ALLOWED_HOSTS && !process.env.PUBLIC_URL && process.env.CAREKAKI_STRICT_HOSTS !== "1") {
+  process.env.ALLOWED_HOSTS = "*";
+}
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const envFile = path.join(root, ".env");
 if (existsSync(envFile)) {
