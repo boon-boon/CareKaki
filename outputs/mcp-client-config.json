@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "carekaki": {
+      "command": "C:/Users/nestchao/.workbuddy-ai/binaries/node/versions/22.22.2-6/node.exe",
+      "args": ["C:/Users/nestchao/Desktop/CareKaki/dist/index.js"],
+      "env": {
+        "CAREKAKI_PROVIDERS_CSV": "C:/Users/nestchao/Desktop/CareKaki/carekaki_providers_demo.csv"
+      }
+    }
+  }
+}

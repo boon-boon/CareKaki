@@ -1,0 +1,261 @@
+<div class="container">
+  <!-- Page header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Pricing Matrix</h1>
+      <p class="page-subtitle">Service rates, surcharges & billing rules · v{{ matrix.version }}</p>
+    </div>
+    <div class="header-meta">
+      <span class="badge badge-teal">
+        <app-icon name="dollar" [size]="13"/>
+        {{ matrix.currency }}
+      </span>
+      <span class="badge badge-green">
+        <app-icon name="shield" [size]="13"/>
+        SST {{ (matrix.tax.rate * 100).toFixed(0) }}%
+      </span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab" [class.active]="activeTab() === 'rates'" (click)="activeTab.set('rates')">
+      <app-icon name="dollar" [size]="16"/> Base Rates
+    </button>
+    <button class="tab" [class.active]="activeTab() === 'surcharges'" (click)="activeTab.set('surcharges')">
+      <app-icon name="zap" [size]="16"/> Surcharges
+    </button>
+    <button class="tab" [class.active]="activeTab() === 'rules'" (click)="activeTab.set('rules')">
+      <app-icon name="shield" [size]="16"/> Rules &amp; Zones
+    </button>
+  </div>
+
+  <!-- ===== TAB: Base rates ===== -->
+  @if (activeTab() === 'rates') {
+    <div class="animate-fade-in">
+      <div class="rate-grid">
+        @for (s of serviceCards; track s.key) {
+          <div class="card rate-card" [attr.data-color]="s.color">
+            <div class="rate-card-top">
+              <div class="rate-icon" [attr.data-color]="s.color">
+                <app-icon [name]="s.icon" [size]="24"/>
+              </div>
+              <span class="rate-service">{{ s.label }}</span>
+            </div>
+            <div class="rate-price">
+              <span class="rate-amount">{{ formatMYR(matrix.service_base_rates[s.key].base_hourly_rate) }}</span>
+              <span class="rate-unit">/ hour</span>
+            </div>
+            <p class="rate-desc">{{ matrix.service_base_rates[s.key].description }}</p>
+          </div>
+        }
+      </div>
+
+      <!-- Interactive calculator -->
+      <div class="card calc-card">
+        <div class="card-header">
+          <div class="header-with-icon">
+            <app-icon name="zap" [size]="18"/>
+            <span class="card-title">Cost Calculator</span>
+          </div>
+          <span class="badge badge-gray">Live preview</span>
+        </div>
+        <div class="card-body">
+          <div class="calc-layout">
+            <!-- Inputs -->
+            <div class="calc-inputs">
+              <div class="calc-field">
+                <label class="label">Billable Rate (RM/hr)</label>
+                <input
+                  type="number" class="input" min="0" step="0.5"
+                  [value]="calcRate()"
+                  (input)="calcRate.set(+$any($event.target).value || 0)"
+                />
+                <span class="calc-hint">max(base_rate, caregiver_rate)</span>
+              </div>
+              <div class="calc-field">
+                <label class="label">Hours per Day</label>
+                <input
+                  type="number" class="input" min="1" max="24"
+                  [value]="calcHours()"
+                  (input)="calcHours.set(+$any($event.target).value || 0)"
+                />
+                <span class="calc-hint">min {{ matrix.billing_rules.minimum_shift_hours }}h billing</span>
+              </div>
+              <div class="calc-field">
+                <label class="label">Number of Days</label>
+                <input
+                  type="number" class="input" min="1"
+                  [value]="calcDays()"
+                  (input)="calcDays.set(+$any($event.target).value || 0)"
+                />
+              </div>
+            </div>
+
+            <!-- Result -->
+            <div class="calc-result">
+              <div class="calc-formula">
+                {{ formatMYR(calcRate()) }} × {{ calcHours() }}h × {{ calcDays() }}d
+              </div>
+              <div class="calc-line">
+                <span>Subtotal</span>
+                <span>{{ formatMYR(calcSubtotal) }}</span>
+              </div>
+              <div class="calc-line">
+                <span>SST ({{ (matrix.tax.rate * 100).toFixed(0) }}%)</span>
+                <span>{{ formatMYR(calcSst) }}</span>
+              </div>
+              <div class="calc-line total">
+                <span>Total Payable</span>
+                <span>{{ formatMYR(calcTotal) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ===== TAB: Surcharges ===== -->
+  @if (activeTab() === 'surcharges') {
+    <div class="animate-fade-in">
+      <div class="surcharge-list">
+        @for (s of surcharges; track s.name) {
+          <div class="card surcharge-card">
+            <div class="surcharge-icon" [attr.data-color]="s.color">
+              <app-icon [name]="s.icon" [size]="22"/>
+            </div>
+            <div class="surcharge-body">
+              <div class="surcharge-head">
+                <span class="surcharge-name">{{ s.name }}</span>
+                <span class="surcharge-mult">{{ s.multiplier }}× multiplier</span>
+              </div>
+              <span class="surcharge-condition">{{ s.condition }}</span>
+              <p class="surcharge-desc">{{ s.description }}</p>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Tax card -->
+      <div class="card tax-card">
+        <div class="tax-icon">
+          <app-icon name="shield" [size]="24"/>
+        </div>
+        <div class="tax-body">
+          <span class="tax-name">{{ matrix.tax.name }} — {{ (matrix.tax.rate * 100).toFixed(0) }}%</span>
+          <p class="tax-desc">{{ matrix.tax.description }}</p>
+          <span class="tax-note">Regulatory constant — non-configurable</span>
+        </div>
+        <div class="tax-rate">{{ (matrix.tax.rate * 100).toFixed(0) }}<small>%</small></div>
+      </div>
+    </div>
+  }
+
+  <!-- ===== TAB: Rules & Zones ===== -->
+  @if (activeTab() === 'rules') {
+    <div class="animate-fade-in rules-layout">
+      <!-- Billing rules -->
+      <div class="card">
+        <div class="card-header">
+          <div class="header-with-icon">
+            <app-icon name="clipboard" [size]="18"/>
+            <span class="card-title">Billing Rules</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <dl class="detail-list">
+            <div class="detail-row">
+              <dt>Minimum Shift Hours</dt>
+              <dd>{{ matrix.billing_rules.minimum_shift_hours }} hours</dd>
+            </div>
+            <div class="detail-row">
+              <dt>Rounding</dt>
+              <dd>{{ matrix.billing_rules.rounding }}</dd>
+            </div>
+            <div class="detail-row">
+              <dt>Billable Rate Rule</dt>
+              <dd>{{ matrix.billing_rules.billable_rate_rule }}</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+
+      <!-- Certification mapping -->
+      <div class="card">
+        <div class="card-header">
+          <div class="header-with-icon">
+            <app-icon name="shield" [size]="18"/>
+            <span class="card-title">Certification Mapping</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="cert-map-list">
+            @for (m of certMapping; track m.service) {
+              <div class="cert-map-item">
+                <span class="cert-map-service">{{ m.service }}</span>
+                <div class="cert-map-tags">
+                  @for (r of m.required; track r) {
+                    <span class="cert-tag required">{{ r }}</span>
+                  }
+                  @for (b of m.bonus; track b) {
+                    <span class="cert-tag bonus">{{ b }}</span>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+          <div class="cert-legend">
+            <span><span class="cert-tag required">Required</span></span>
+            <span><span class="cert-tag bonus">Bonus</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zone reference -->
+      <div class="card full-span">
+        <div class="card-header">
+          <div class="header-with-icon">
+            <app-icon name="map-pin" [size]="18"/>
+            <span class="card-title">Malaysian Geographic Zones</span>
+          </div>
+          <span class="badge badge-gray">{{ zones.length }} zones</span>
+        </div>
+        <div class="card-body no-pad">
+          <div class="table-wrap">
+            <table class="zone-table">
+              <thead>
+                <tr>
+                  <th>Zone (Canonical)</th>
+                  <th>Covers</th>
+                  <th>Adjacent (for fallback)</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (z of zones; track z.zone) {
+                  <tr>
+                    <td><span class="zone-name">{{ z.zone }}</span></td>
+                    <td>
+                      <div class="tag-list">
+                        @for (c of z.covers; track c) {
+                          <span class="zone-tag">{{ c }}</span>
+                        }
+                      </div>
+                    </td>
+                    <td>
+                      <div class="tag-list">
+                        @for (a of z.adjacent; track a) {
+                          <span class="zone-tag adjacent">{{ a }}</span>
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
+</div>

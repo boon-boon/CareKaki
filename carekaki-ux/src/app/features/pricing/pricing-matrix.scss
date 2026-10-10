@@ -1,0 +1,560 @@
+/* ============================================================
+   Pricing Matrix
+   ============================================================ */
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.header-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.header-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--teal-600);
+}
+
+/* ---------- Tabs ---------- */
+.tab-bar {
+  display: flex;
+  gap: 6px;
+  background: var(--gray-100);
+  border-radius: var(--radius-md);
+  padding: 4px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+  white-space: nowrap;
+  flex: 1;
+  justify-content: center;
+
+  &.active {
+    background: var(--bg-surface);
+    color: var(--teal-700);
+    box-shadow: var(--shadow-xs);
+  }
+}
+
+/* ---------- Rate cards ---------- */
+.rate-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+@media (min-width: 640px) {
+  .rate-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (min-width: 1024px) {
+  .rate-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+.rate-card {
+  padding: 18px;
+  border-top: 3px solid;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+  }
+
+  &[data-color='teal']   { border-top-color: var(--teal-500); }
+  &[data-color='blue']   { border-top-color: var(--blue-500); }
+  &[data-color='amber']  { border-top-color: var(--amber-500); }
+  &[data-color='purple'] { border-top-color: var(--purple-500); }
+}
+
+.rate-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.rate-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  &[data-color='teal']   { background: var(--teal-50);   color: var(--teal-600); }
+  &[data-color='blue']   { background: var(--blue-50);   color: var(--blue-600); }
+  &[data-color='amber']  { background: var(--amber-50);  color: var(--amber-600); }
+  &[data-color='purple'] { background: var(--purple-50); color: var(--purple-600); }
+}
+
+.rate-service {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rate-price {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.rate-amount {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.rate-unit {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.rate-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ---------- Calculator ---------- */
+.calc-card {
+  margin-bottom: 20px;
+}
+
+.calc-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+@media (min-width: 768px) {
+  .calc-layout {
+    grid-template-columns: 1.2fr 1fr;
+    align-items: start;
+  }
+}
+
+.calc-inputs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+@media (min-width: 480px) {
+  .calc-inputs {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.calc-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.calc-hint {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.calc-result {
+  background: linear-gradient(135deg, var(--teal-600), var(--teal-800));
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.calc-formula {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.7);
+  font-family: 'SF Mono', ui-monospace, monospace;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+}
+
+.calc-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.85);
+
+  span:last-child {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &.total {
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    font-size: 1.05rem;
+
+    span {
+      font-weight: 800;
+      color: white;
+    }
+  }
+}
+
+/* ---------- Surcharges ---------- */
+.surcharge-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+@media (min-width: 768px) {
+  .surcharge-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.surcharge-card {
+  padding: 18px;
+  display: flex;
+  gap: 14px;
+}
+
+.surcharge-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  &[data-color='purple'] { background: var(--purple-50); color: var(--purple-600); }
+  &[data-color='blue']   { background: var(--blue-50);   color: var(--blue-600); }
+  &[data-color='amber']  { background: var(--amber-50);  color: var(--amber-600); }
+}
+
+.surcharge-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.surcharge-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.surcharge-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.surcharge-mult {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  background: var(--amber-50);
+  color: var(--amber-600);
+  border-radius: var(--radius-full);
+}
+
+.surcharge-condition {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--teal-600);
+}
+
+.surcharge-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Tax card */
+.tax-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--green-50), var(--bg-surface));
+  border-left: 4px solid var(--green-500);
+}
+
+.tax-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  background: var(--green-50);
+  color: var(--green-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tax-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tax-name {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.tax-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.tax-note {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--green-700);
+}
+
+.tax-rate {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--green-600);
+  letter-spacing: -0.03em;
+
+  small {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+}
+
+/* ---------- Rules layout ---------- */
+.rules-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 900px) {
+  .rules-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.full-span {
+  grid-column: 1 / -1;
+}
+
+.no-pad {
+  padding: 0;
+}
+
+/* Detail list */
+.detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+
+  dt {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  dd {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin: 0;
+  }
+}
+
+@media (min-width: 480px) {
+  .detail-row {
+    grid-template-columns: 160px 1fr;
+    gap: 10px;
+    align-items: baseline;
+  }
+}
+
+/* Cert mapping */
+.cert-map-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cert-map-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--gray-100);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+}
+
+.cert-map-service {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.cert-map-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.cert-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+
+  &.required {
+    background: var(--teal-100);
+    color: var(--teal-800);
+  }
+
+  &.bonus {
+    background: var(--gray-100);
+    color: var(--gray-600);
+  }
+}
+
+.cert-legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gray-100);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* Zone table */
+.table-wrap {
+  overflow-x: auto;
+}
+
+.zone-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.zone-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-100);
+  white-space: nowrap;
+}
+
+.zone-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: top;
+}
+
+.zone-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.zone-name {
+  font-weight: 700;
+  color: var(--teal-700);
+  white-space: nowrap;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.zone-tag {
+  font-size: 0.68rem;
+  font-weight: 500;
+  padding: 3px 8px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  border-radius: var(--radius-sm);
+
+  &.adjacent {
+    background: var(--amber-50);
+    color: var(--amber-600);
+  }
+}
+
+/* ---------- Mobile ---------- */
+@media (max-width: 640px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tab {
+    font-size: 0.78rem;
+    padding: 9px 10px;
+  }
+
+  .tax-card {
+    flex-wrap: wrap;
+  }
+
+  .tax-rate {
+    font-size: 1.8rem;
+  }
+}

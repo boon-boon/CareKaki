@@ -1,0 +1,21 @@
+provider_id,name,location,hourly_rate,rating,verified,services,languages,available_date,available_from,available_to
+CK001,PJ Care Support (Demo),Petaling Jaya,35,4.7,true,elderly_care|mobility_assistance,Malay|English,2026-10-17,09:00,18:00
+CK002,PJ Home Companion (Demo),Petaling Jaya,25,4.9,true,elderly_care,Malay|English,2026-10-17,09:00,18:00
+CK003,PJ Mobility Care (Demo),Petaling Jaya,30,4.8,true,elderly_care|mobility_assistance,Malay|Mandarin,2026-10-17,08:00,12:00
+CK004,Subang Family Care (Demo),Subang Jaya,32,4.9,true,elderly_care|mobility_assistance,English|Malay,2026-10-17,08:00,20:00
+CK005,PJ Assisted Living (Demo),Petaling Jaya,40,4.6,true,elderly_care|mobility_assistance,Malay|English,2026-10-17,10:00,19:00
+CK006,PJ Budget Care (Demo),Petaling Jaya,28,4.5,false,elderly_care|mobility_assistance,Malay,2026-10-17,09:00,18:00
+CK007,PJ Premium Care (Demo),Petaling Jaya,55,4.9,true,elderly_care|mobility_assistance,English|Malay,2026-10-17,09:00,18:00
+CK008,PJ Dementia Support (Demo),Petaling Jaya,42,4.8,true,elderly_care|dementia_care,Malay|Mandarin,2026-10-17,09:00,18:00
+CK009,Cheras Golden Care (Demo),Cheras,29,4.4,true,elderly_care|mobility_assistance,Malay|English,2026-10-17,09:00,18:00
+CK010,Shah Alam Elder Care (Demo),Shah Alam,28,4.3,true,elderly_care|mobility_assistance,Malay|English,2026-10-17,09:00,18:00
+CK011,KL Dementia Companion (Demo),Kuala Lumpur,50,4.6,true,elderly_care|dementia_care,English|Mandarin,2026-10-17,09:00,20:00
+CK012,Subang Evening Care (Demo),Subang Jaya,38,4.4,true,elderly_care|mobility_assistance,Malay|English,2026-10-17,16:00,23:00
+CK013,PJ Saturday Companion (Demo),Petaling Jaya,25,4.4,true,companionship|elderly_care,Malay|English,2026-10-17,12:00,20:00
+CK014,PJ Sunday Mobility (Demo),Petaling Jaya,39,4.7,true,elderly_care|mobility_assistance,Malay|English,2026-10-18,09:00,19:00
+CK015,KL Elderly Companion (Demo),Kuala Lumpur,33,4.1,true,elderly_care|companionship,Malay|English,2026-10-17,09:00,18:00
+CK016,Shah Alam Respite (Demo),Shah Alam,45,4.6,true,elderly_care|dementia_care,Malay,2026-10-17,09:00,18:00
+CK017,PJ Weekday Support (Demo),Petaling Jaya,20,4.5,true,elderly_care|mobility_assistance,Malay,2026-10-16,08:00,18:00
+CK018,PJ Evening Mobility (Demo),Petaling Jaya,36,4.2,true,elderly_care|mobility_assistance,English|Malay,2026-10-17,18:00,23:00
+CK019,KL General Care (Demo),Kuala Lumpur,30,4.3,true,elderly_care|mobility_assistance,Malay|Tamil,2026-10-17,08:00,18:00
+CK020,Subang Companion (Demo),Subang Jaya,26,4.5,true,companionship|elderly_care,English|Mandarin,2026-10-17,09:00,19:00

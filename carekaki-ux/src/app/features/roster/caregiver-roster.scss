@@ -1,0 +1,611 @@
+/* ============================================================
+   Caregiver Roster
+   ============================================================ */
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Summary strip ---------- */
+.summary-strip {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(135deg, var(--teal-600), var(--teal-800));
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  color: white;
+  box-shadow: var(--shadow-md);
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.summary-value {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+
+  &.green { color: var(--teal-200); }
+}
+
+.summary-label {
+  font-size: 0.68rem;
+  color: rgba(255,255,255,0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.summary-divider {
+  width: 1px;
+  height: 32px;
+  background: rgba(255,255,255,0.15);
+  flex-shrink: 0;
+}
+
+/* ---------- Filter card ---------- */
+.filter-card {
+  margin-bottom: 16px;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filter-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--gray-50);
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+  height: 42px;
+  flex: 1;
+  min-width: 220px;
+  color: var(--text-muted);
+  transition: border-color var(--transition-fast);
+
+  &:focus-within {
+    border-color: var(--teal-500);
+    box-shadow: 0 0 0 3px var(--teal-100);
+  }
+}
+
+.filter-input {
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  flex: 1;
+  font-family: inherit;
+  min-width: 0;
+
+  &::placeholder { color: var(--text-muted); }
+}
+
+.clear-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  border-radius: var(--radius-sm);
+
+  &:hover { color: var(--text-primary); }
+}
+
+.filter-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gray-50);
+  border: 1.5px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+  height: 42px;
+  color: var(--text-muted);
+  transition: border-color var(--transition-fast);
+
+  &:focus-within {
+    border-color: var(--teal-500);
+  }
+}
+
+.filter-select {
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  font-family: inherit;
+  cursor: pointer;
+  max-width: 150px;
+}
+
+.view-toggle {
+  display: flex;
+  background: var(--gray-100);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 2px;
+
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: none;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+
+    &.active {
+      background: var(--bg-surface);
+      color: var(--teal-600);
+      box-shadow: var(--shadow-xs);
+    }
+  }
+}
+
+/* ---------- Active filters ---------- */
+.active-filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gray-100);
+  flex-wrap: wrap;
+}
+
+.active-filters-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--teal-700);
+}
+
+/* ---------- Results count ---------- */
+.results-count {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  padding-left: 2px;
+
+  strong { color: var(--text-primary); }
+}
+
+/* ---------- Table ---------- */
+.table-wrap {
+  overflow-x: auto;
+}
+
+.roster-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.roster-table thead th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-100);
+  white-space: nowrap;
+}
+
+.roster-table tbody td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: middle;
+}
+
+.roster-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.roster-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.roster-table tbody tr:hover {
+  background: var(--gray-50);
+}
+
+/* Caregiver cell */
+.cg-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cg-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+
+  &.lg {
+    width: 48px;
+    height: 48px;
+    font-size: 0.9rem;
+  }
+
+  &[data-color='teal']   { background: linear-gradient(135deg, var(--teal-400), var(--teal-600)); }
+  &[data-color='blue']   { background: linear-gradient(135deg, #60a5fa, var(--blue-600)); }
+  &[data-color='purple'] { background: linear-gradient(135deg, #c084fc, var(--purple-600)); }
+  &[data-color='amber']  { background: linear-gradient(135deg, #fbbf24, var(--amber-600)); }
+  &[data-color='green']  { background: linear-gradient(135deg, #34d399, var(--green-600)); }
+  &[data-color='red']    { background: linear-gradient(135deg, #f87171, var(--red-600)); }
+}
+
+.cg-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cg-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.cg-id {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-family: 'SF Mono', ui-monospace, monospace;
+}
+
+/* Certifications */
+.cert-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.cert-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  background: var(--teal-50);
+  color: var(--teal-700);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+/* Zone cell */
+.zone-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* Rate cell */
+.rate-cell {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  white-space: nowrap;
+
+  small {
+    font-weight: 500;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+  }
+}
+
+/* ---------- Grid view ---------- */
+.roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.cg-card {
+  padding: 16px;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.cg-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cg-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cg-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gray-100);
+}
+
+/* ---------- Mobile cards ---------- */
+.roster-mobile {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cg-card-mobile {
+  padding: 14px;
+}
+
+.cg-mobile-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cg-mobile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+
+  .cg-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.cg-mobile-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--gray-100);
+}
+
+/* ---------- Empty state ---------- */
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  background: var(--gray-100);
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gray-400);
+}
+
+.empty-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.empty-text {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-bottom: 18px;
+}
+
+/* ---------- Responsive: swap table/grid for cards on mobile ---------- */
+@media (max-width: 767px) {
+  .roster-table-view,
+  .roster-grid {
+    display: none;
+  }
+
+  .roster-mobile {
+    display: flex;
+  }
+}
+
+/* ---------- Mobile tweaks ---------- */
+@media (max-width: 640px) {
+  .summary-strip {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+
+  .summary-value { font-size: 1.1rem; }
+  .summary-label { font-size: 0.6rem; }
+
+  .filter-row {
+    flex-direction: column;
+  }
+
+  .filter-select-wrap,
+  .filter-search {
+    width: 100%;
+  }
+
+  .filter-select {
+    flex: 1;
+    max-width: none;
+  }
+}
+
+/* ============================================================
+   CareKaki MCP Roster Catalogue Integration Styles
+   ============================================================ */
+
+.roster-tabs-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.roster-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+
+  .tab-badge {
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: var(--gray-100);
+    color: var(--text-tertiary);
+  }
+
+  &.active {
+    background: var(--teal-50);
+    border-color: var(--teal-500);
+    color: var(--teal-800);
+    box-shadow: 0 2px 6px rgba(13, 118, 110, 0.12);
+
+    .tab-badge {
+      background: var(--teal-100);
+      color: var(--teal-800);
+    }
+  }
+
+  &:hover:not(.active) {
+    background: var(--gray-50);
+    color: var(--text-primary);
+  }
+}
+
+.filter-rate-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+
+  .rate-slider-label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .rate-slider {
+    width: 100px;
+    accent-color: var(--teal-600);
+    cursor: pointer;
+  }
+}
+
+.verified-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+
+  input[type="checkbox"] {
+    accent-color: var(--teal-600);
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+  }
+}
+
+.rating-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--amber-600);
+  background: var(--amber-50);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--amber-200);
+
+  app-icon {
+    color: var(--amber-500);
+  }
+}
+
+.avail-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+

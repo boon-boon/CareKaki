@@ -1,0 +1,477 @@
+/* ============================================================
+   Intake Form
+   ============================================================ */
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.intake-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .intake-layout {
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+}
+
+.intake-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ---------- Header helpers ---------- */
+.header-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--teal-600);
+}
+
+.header-with-icon .card-title {
+  color: var(--text-primary);
+}
+
+/* ---------- Textarea footer ---------- */
+.textarea-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.char-count {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+/* ---------- Example chips ---------- */
+.example-chips {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+@media (min-width: 480px) {
+  .example-chips {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.example-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--teal-50);
+  border: 1px solid var(--teal-100);
+  border-radius: var(--radius-md);
+  color: var(--teal-800);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: inherit;
+  text-align: left;
+
+  &:hover {
+    background: var(--teal-100);
+    border-color: var(--teal-300);
+    transform: translateY(-1px);
+  }
+
+  app-icon {
+    color: var(--teal-600);
+    flex-shrink: 0;
+  }
+}
+
+.example-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Empty state ---------- */
+.empty-card {
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 24px;
+  max-width: 380px;
+}
+
+.empty-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 16px;
+  background: var(--teal-50);
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--teal-500);
+}
+
+.empty-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.empty-text {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.slot-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.slot-pill {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  background: var(--gray-100);
+  color: var(--gray-500);
+  border-radius: var(--radius-full);
+}
+
+/* ---------- Skeleton ---------- */
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.skeleton-row {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Status banner ---------- */
+.status-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-left: 4px solid;
+
+  &.complete {
+    border-left-color: var(--green-500);
+    background: linear-gradient(90deg, var(--green-50), var(--bg-surface));
+    .banner-icon { color: var(--green-600); background: var(--green-50); }
+  }
+
+  &.incomplete {
+    border-left-color: var(--amber-500);
+    background: linear-gradient(90deg, var(--amber-50), var(--bg-surface));
+    .banner-icon { color: var(--amber-600); background: var(--amber-50); }
+  }
+}
+
+.banner-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.banner-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.banner-sub {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* ---------- Entity grid ---------- */
+.entity-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 480px) {
+  .entity-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.entity-item {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  transition: border-color var(--transition-fast);
+
+  &.missing {
+    background: var(--amber-50);
+    border-color: var(--amber-400);
+  }
+
+  &.full-width {
+    grid-column: 1 / -1;
+  }
+}
+
+.entity-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.entity-value {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  word-break: break-word;
+}
+
+.entity-meta {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* ---------- Spinner ---------- */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+.spinner-teal {
+  border: 2px solid var(--teal-100);
+  border-top-color: var(--teal-600);
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- Buttons ---------- */
+.btn-block {
+  width: 100%;
+  padding: 14px;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* ============================================================
+   CareKaki MCP Integration Styles
+   ============================================================ */
+
+.mcp-validation-card {
+  border: 1px solid var(--teal-200);
+  background: var(--bg-surface);
+  box-shadow: 0 4px 12px rgba(13, 118, 110, 0.05);
+
+  .card-header {
+    background: var(--teal-50);
+  }
+}
+
+.clarification-box {
+  background: var(--amber-50);
+  border: 1px solid var(--amber-200);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.clarification-prompt {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--amber-800);
+  margin-bottom: 12px;
+
+  .prompt-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.88rem;
+
+    .prompt-hint {
+      font-size: 0.72rem;
+      color: var(--amber-700);
+    }
+  }
+}
+
+.choice-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.choice-chip-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid var(--amber-300);
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--amber-900);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: var(--amber-100);
+    border-color: var(--amber-500);
+    transform: translateY(-1px);
+  }
+}
+
+.confirmation-box {
+  background: var(--teal-50);
+  border: 1px solid var(--teal-200);
+  border-radius: var(--radius-md);
+  padding: 14px;
+}
+
+.confirm-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: var(--teal-900);
+  margin-bottom: 12px;
+
+  .confirm-desc {
+    font-size: 0.78rem;
+    color: var(--teal-700);
+    margin: 2px 0 0 0;
+  }
+}
+
+.confirm-summary-table {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: white;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--teal-100);
+  margin-bottom: 12px;
+
+  .summary-col {
+    font-size: 0.78rem;
+    display: flex;
+    justify-content: space-between;
+
+    span {
+      color: var(--text-tertiary);
+    }
+
+    strong {
+      color: var(--text-primary);
+    }
+  }
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.valid-box {
+  background: var(--green-50);
+  border: 1px solid var(--green-200);
+  border-radius: var(--radius-md);
+  padding: 16px;
+
+  .valid-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--green-700);
+    margin-bottom: 14px;
+
+    .valid-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin: 0;
+      color: var(--green-900);
+    }
+
+    .valid-sub {
+      font-size: 0.78rem;
+      color: var(--green-800);
+      margin: 2px 0 0 0;
+    }
+  }
+}
+
+.example-preview {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--teal-700);
+  margin-top: 2px;
+  white-space: normal;
+  line-height: 1.3;
+}
+

@@ -1,0 +1,337 @@
+<div class="container">
+  <!-- Page header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">New Client Intake & NLP Parser</h1>
+      <p class="page-subtitle">Describe care requests in natural language — integrated with CareKaki MCP Engine</p>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <a routerLink="/matching" class="btn btn-primary">
+        <app-icon name="match" [size]="18"/>
+        <span>View Matching Results</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="intake-layout">
+    <!-- ===== Left: Input ===== -->
+    <div class="intake-col">
+      <div class="card">
+        <div class="card-header">
+          <div class="header-with-icon">
+            <app-icon name="message" [size]="18"/>
+            <span class="card-title">Natural Language Request</span>
+          </div>
+          @if (rawInput()) {
+            <button class="btn btn-ghost btn-sm" (click)="clear()">
+              <app-icon name="x" [size]="15"/>
+              Clear
+            </button>
+          }
+        </div>
+        <div class="card-body">
+          <textarea
+            class="textarea"
+            [ngModel]="rawInput()"
+            (ngModelChange)="rawInput.set($event)"
+            placeholder="e.g. Need elderly care in Petaling Jaya on 2026-10-17 starting at 09:00 for 2 hours. Budget is RM200."
+            rows="5"
+          ></textarea>
+
+          <div class="textarea-footer">
+            <span class="char-count">{{ rawInput().length }} characters</span>
+            <div style="display: flex; gap: 8px;">
+              <button
+                class="btn btn-primary"
+                [disabled]="!rawInput().trim() || parsing()"
+                (click)="parseIntake()"
+              >
+                @if (parsing()) {
+                  <span class="spinner"></span>
+                  <span>Extracting...</span>
+                } @else {
+                  <app-icon name="zap" [size]="17"/>
+                  <span>Parse & Check MCP</span>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Example prompts with MCP Test Case -->
+      <div class="card">
+        <div class="card-header">
+          <div class="header-with-icon">
+            <app-icon name="star" [size]="18"/>
+            <span class="card-title">Pre-configured Test Prompts</span>
+          </div>
+          <span class="badge badge-teal">One-click test</span>
+        </div>
+        <div class="card-body">
+          <div class="example-chips">
+            @for (ex of examples; track ex.label) {
+              <button class="example-chip" (click)="useExample(ex.text)">
+                <div class="example-info">
+                  <span class="example-label">{{ ex.label }}</span>
+                  <span class="example-preview">{{ ex.text }}</span>
+                </div>
+                <app-icon name="arrow-right" [size]="16"/>
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Right: Extraction result & MCP State Machine ===== -->
+    <div class="intake-col">
+      <!-- Empty state -->
+      @if (!parsed() && !parsing()) {
+        <div class="card empty-card">
+          <div class="empty-state">
+            <div class="empty-icon">
+              <app-icon name="intake" [size]="36"/>
+            </div>
+            <h3 class="empty-title">Ready for Caregiver Intake</h3>
+            <p class="empty-text">
+              Type a care request or click any prompt on the left. The agent extracts structured parameters,
+              validates them against the MCP state machine, and suggests suitable caregivers.
+            </p>
+            <div class="slot-preview">
+              @for (slot of ['City Location', 'Care Service', 'Date & Time', 'Duration', 'MYR Budget']; track slot) {
+                <span class="slot-pill">{{ slot }}</span>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Parsing skeleton -->
+      @if (parsing()) {
+        <div class="card">
+          <div class="card-header">
+            <div class="header-with-icon">
+              <span class="spinner spinner-teal"></span>
+              <span class="card-title">Extracting entities & calling MCP...</span>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="skeleton-list">
+              @for (i of [1,2,3,4,5]; track i) {
+                <div class="skeleton-row">
+                  <div class="skeleton" style="width: 40%; height: 14px;"></div>
+                  <div class="skeleton" style="width: 70%; height: 20px; margin-top: 8px;"></div>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Parsed result -->
+      @if (parsed(); as p) {
+        <!-- Completeness banner -->
+        <div class="card status-banner" [class.complete]="isComplete" [class.incomplete]="!isComplete">
+          <div class="banner-icon">
+            <app-icon [name]="isComplete ? 'check-circle' : 'alert'" [size]="22"/>
+          </div>
+          <div class="banner-text">
+            <span class="banner-title">
+              {{ isComplete ? 'Structured Entities Extracted — Ready for Care Matching' : 'Missing entity slots — needs clarification' }}
+            </span>
+            <span class="banner-sub">
+              Intake ID: <strong>{{ intakeId() }}</strong>
+            </span>
+          </div>
+        </div>
+
+        <!-- Entity cards -->
+        <div class="card">
+          <div class="card-header">
+            <div class="header-with-icon">
+              <app-icon name="match" [size]="18"/>
+              <span class="card-title">Extracted Intake Parameters</span>
+            </div>
+            <button class="btn btn-outline btn-sm" (click)="validateWithMcp()" [disabled]="mcpValidating()">
+              <app-icon name="refresh" [size]="14"/>
+              <span>{{ mcpValidating() ? 'Re-validating...' : 'Re-check MCP' }}</span>
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="entity-grid">
+              <!-- Service type -->
+              <div class="entity-item">
+                <div class="entity-label">
+                  <app-icon name="heart" [size]="15"/>
+                  Service Type
+                </div>
+                <div class="entity-value">
+                  <span class="badge badge-blue">{{ serviceTypeLabel }}</span>
+                </div>
+              </div>
+
+              <!-- Location -->
+              <div class="entity-item">
+                <div class="entity-label">
+                  <app-icon name="map-pin" [size]="15"/>
+                  City Location
+                </div>
+                <div class="entity-value">
+                  <strong>{{ p.location }}</strong>
+                  <span class="entity-meta">Zone: {{ p.location_zone }}</span>
+                </div>
+              </div>
+
+              <!-- Shift hours -->
+              <div class="entity-item">
+                <div class="entity-label">
+                  <app-icon name="clock" [size]="15"/>
+                  Shift Hours
+                </div>
+                <div class="entity-value">
+                  {{ p.shift_hours.start }} – {{ p.shift_hours.end }}
+                  <span class="entity-meta">{{ p.shift_hours.duration_hours }} hours</span>
+                </div>
+              </div>
+
+              <!-- Patient conditions -->
+              <div class="entity-item">
+                <div class="entity-label">
+                  <app-icon name="activity" [size]="15"/>
+                  Patient Needs
+                </div>
+                <div class="entity-value">{{ p.patient_conditions }}</div>
+              </div>
+
+              <!-- Start date -->
+              <div class="entity-item">
+                <div class="entity-label">
+                  <app-icon name="calendar" [size]="15"/>
+                  Care Date
+                </div>
+                <div class="entity-value">
+                  {{ formatDate(p.start_date) || 'Not specified' }}
+                  <span class="entity-meta">ISO: {{ p.start_date || 'None' }}</span>
+                </div>
+              </div>
+
+              <!-- Budget -->
+              <div class="entity-item">
+                <div class="entity-label">
+                  <app-icon name="shield" [size]="15"/>
+                  Total Budget
+                </div>
+                <div class="entity-value">
+                  {{ p.max_budget ? 'RM ' + p.max_budget : 'Not specified' }}
+                  <span class="entity-meta">Currency: MYR</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== MCP Validation & Clarification Engine Card ===== -->
+        @if (mcpValidation(); as val) {
+          <div class="card mcp-validation-card">
+            <div class="card-header">
+              <div class="header-with-icon">
+                <app-icon name="terminal" [size]="18"/>
+                <span class="card-title">CareKaki MCP State: <code>{{ val.status }}</code></span>
+              </div>
+              <span
+                class="badge"
+                [class.badge-amber]="val.status === 'needs_clarification' || val.status === 'needs_confirmation'"
+                [class.badge-green]="val.status === 'valid'"
+              >
+                {{ val.status === 'needs_clarification' ? 'Clarification Required' : (val.status === 'needs_confirmation' ? 'Confirmation Needed' : 'Valid & Confirmed') }}
+              </span>
+            </div>
+
+            <div class="card-body">
+              <!-- Case 1: Clarification needed -->
+              @if (val.status === 'needs_clarification' && val.question) {
+                <div class="clarification-box">
+                  <div class="clarification-prompt">
+                    <app-icon name="alert" [size]="20"/>
+                    <div class="prompt-text">
+                      <strong>{{ val.question.text }}</strong>
+                      <span class="prompt-hint">Question from <code>carekaki_validate_request</code></span>
+                    </div>
+                  </div>
+
+                  @if (val.question.options && val.question.options.length > 0) {
+                    <div class="choice-chips">
+                      @for (opt of val.question.options; track opt.value) {
+                        <button class="choice-chip-btn" (click)="selectMcpChoice(val.question.field, opt.value)">
+                          <app-icon name="check" [size]="14"/>
+                          <span>{{ opt.label }}</span>
+                        </button>
+                      }
+                    </div>
+                  } @else {
+                    <div class="clarification-input-group" style="display: flex; gap: 8px; margin-top: 10px;">
+                      <input
+                        class="input"
+                        style="flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--amber-300);"
+                        [placeholder]="val.question.type === 'date' ? 'YYYY-MM-DD (e.g. 2026-10-17)' : 'Enter ' + val.question.field"
+                        [ngModel]="clarificationAnswer()"
+                        (ngModelChange)="clarificationAnswer.set($event)"
+                        (keyup.enter)="submitClarification(val.question.field)"
+                      />
+                      <button class="btn btn-primary btn-sm" (click)="submitClarification(val.question.field)">Submit</button>
+                    </div>
+                  }
+                </div>
+              }
+
+              <!-- Case 2: Confirmation needed -->
+              @if (val.status === 'needs_confirmation') {
+                <div class="confirmation-box">
+                  <div class="confirm-message">
+                    <app-icon name="shield" [size]="20"/>
+                    <div>
+                      <strong>{{ val.message }}</strong>
+                      <p class="confirm-desc">All required parameters have been validated. Please confirm to initiate caregiver search.</p>
+                    </div>
+                  </div>
+
+                  <div class="confirm-summary-table">
+                    <div class="summary-col"><span>City:</span><strong>{{ val.draft_request?.location }}</strong></div>
+                    <div class="summary-col"><span>Date:</span><strong>{{ val.draft_request?.date }}</strong></div>
+                    <div class="summary-col"><span>Time:</span><strong>{{ val.draft_request?.start_time }} ({{ val.draft_request?.duration_hours }}h)</strong></div>
+                    <div class="summary-col"><span>Budget:</span><strong>RM {{ val.draft_request?.max_budget }}</strong></div>
+                  </div>
+
+                  <div class="confirm-actions">
+                    <button class="btn btn-primary" (click)="confirmAndSearchMcp()">
+                      <app-icon name="check-circle" [size]="18"/>
+                      <span>Confirm & Search Care Providers (MCP)</span>
+                    </button>
+                  </div>
+                </div>
+              }
+
+              <!-- Case 3: Valid and confirmed -->
+              @if (val.status === 'valid') {
+                <div class="valid-box">
+                  <div class="valid-header">
+                    <app-icon name="check-circle" [size]="24"/>
+                    <div>
+                      <h4 class="valid-title">Requirements Validated & Confirmed</h4>
+                      <p class="valid-sub">Ready to match against 20 fictional caregivers via <code>carekaki_search_providers</code>.</p>
+                    </div>
+                  </div>
+                  <a routerLink="/matching" class="btn btn-primary btn-block">
+                    <app-icon name="match" [size]="18"/>
+                    <span>Proceed to Caregiver Matching & Diagnostic View</span>
+                  </a>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+</div>
