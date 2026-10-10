@@ -244,6 +244,8 @@ export interface McpDraftRequest {
   duration_hours?: number;
   max_budget?: number;
   preferred_language?: string;
+  schedule_days?: string[];
+  schedule_dates?: string[];
 }
 
 export interface McpValidationResult {
@@ -257,6 +259,8 @@ export interface McpValidationResult {
     duration_hours: number;
     max_budget: number;
     preferred_language: string;
+    schedule_days?: string[];
+    schedule_dates?: string[];
   };
   draft_request?: McpDraftRequest;
   question?: McpQuestion;
@@ -277,6 +281,17 @@ export interface McpProviderMatch {
   preferred_language_match: boolean;
   available: true;
   match_score: number;
+  covered_dates?: number;
+  requested_dates?: number;
+}
+
+export interface McpProviderAlternative extends Omit<McpProviderMatch, 'available'> {
+  available: boolean;
+  eligible: false;
+  passed_checks: number;
+  failed_checks: string[];
+  checks: { location: boolean; services: boolean; verified: boolean; availability: boolean; budget: boolean };
+  unavailable_dates?: string[];
 }
 
 export interface McpSearchResult {
@@ -284,6 +299,7 @@ export interface McpSearchResult {
   request?: any;
   total_matches?: number;
   matches?: McpProviderMatch[];
+  alternatives?: McpProviderAlternative[];
   data_source?: 'fictional_demo';
   booking_status?: 'not_booked';
   question?: McpQuestion;
@@ -320,5 +336,8 @@ export interface McpDiagnostic {
     verified: boolean;
     availability: Array<{ date: string; start: string; end: string }>;
     estimated_cost: number;
+    covered_dates?: number;
+    requested_dates?: number;
+    unavailable_dates?: string[];
   };
 }
