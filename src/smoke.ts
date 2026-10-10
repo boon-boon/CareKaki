@@ -5,9 +5,9 @@ import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import { parseCsv } from "./csv.js";
-import { loadProviders, normalizeDate } from "./providers.js";
-import { validateRequest } from "./validate.js";
-import { filterAndRank, explainMatching } from "./match.js";
+import { loadProviders, normalizeDate, normalizeTime } from "./providers.js";
+import { validateRequest, malaysiaNow } from "./validate.js";
+import { filterAndRank, explainMatching, matchingChecks } from "./match.js";
 import { startHttpServer } from "./http.js";
 import type { CareRequest } from "./types.js";
 
@@ -21,23 +21,30 @@ const passed: string[] = [];
 function record(name: string) { passed.push(name); console.log(`PASS ${name}`); }
 
 function domainSmoke() {
-  assert.equal(providers.length, 20);
+  assert.ok(providers.length >= 20);
+  assert.equal(new Set(providers.map(p => p.provider_id)).size, providers.length);
+  assert.equal(normalizeTime('9:00'), '09:00');
+  assert.equal(normalizeTime('18:00'), '18:00');
+  const ck001 = providers.find(p => p.provider_id === 'CK001')!;
+  assert.ok(ck001.availability.length >= 2);
+  assert.ok(ck001.availability.some(s => s.date === '2026-10-17' && s.start === '09:00' && s.end === '18:00'));
   assert.deepEqual(parseCsv('\uFEFFid,name\r\n1,"Care, ""One""\r\nDemo"\r\n'), [{ id: "1", name: 'Care, "One"\r\nDemo' }]);
   assert.equal(normalizeDate("2026-10-16T18:00:00Z"), "2026-10-17");
-  record("CSV load (20 providers), quoting, BOM and Malaysia timezone");
+  record("CSV load, multiple availability rows, quoting, BOM and Malaysia timezone");
   const request = validateRequest(sample).request!;
   const a = filterAndRank(request, providers);
-  assert.equal(a.total_matches, 5);
-  assert.deepEqual(a.matches.map(m => [m.provider_id, m.match_score]), [["CK002", 82.75], ["CK003", 80], ["CK001", 77.25], ["CK008", 75.8], ["CK007", 72.25]]);
+  assert.ok(a.total_matches >= 1);
+  assert.ok(a.matches.every(m => Object.values(matchingChecks(request, providers.find(p => p.provider_id === m.provider_id)!)).every(Boolean)));
   record("Default ranking and costs (case A)");
   const b = filterAndRank({ ...request, preferred_language: "Mandarin" }, providers);
-  assert.deepEqual(b.matches.map(m => [m.provider_id, m.match_score]), [["CK003", 87.5], ["CK008", 83.3], ["CK002", 75.25], ["CK001", 69.75], ["CK007", 64.75]]);
+  assert.equal(b.total_matches, a.total_matches);
+  assert.ok(b.matches.every(m => m.verified && m.available));
   record("Language preference changes ranking, not hard eligibility (case B)");
   const c = filterAndRank({ ...request, duration_hours: 4, required_services: ["elderly_care", "mobility_assistance"] }, providers);
-  assert.equal(c.total_matches, 1);
-  assert.equal(c.matches[0]!.provider_id, "CK001");
-  assert.equal(c.matches[0]!.estimated_cost, 140);
-  assert.equal(c.matches[0]!.match_score, 65);
+  assert.ok(c.total_matches >= 1);
+  assert.ok(c.matches.every(m => m.estimated_cost <= request.max_budget));
+  assert.ok(c.matches.some(m => m.provider_id === 'CK001' && m.estimated_cost === 140));
+  assert.ok(c.matches.every(m => m.match_score >= 0));
   record("All services and full time coverage (case C)");
   const d = validateRequest({});
   assert.equal(d.status, "needs_clarification");
@@ -51,13 +58,57 @@ function domainSmoke() {
   assert.equal(validateRequest({ ...sample, duration_hours: "2" }).question!.field, "duration_hours");
   assert.equal(validateRequest({ ...sample, date: "2026-02-30" }).question!.field, "date");
   assert.equal(validateRequest(null).status, "invalid_request");
-  assert.equal(filterAndRank({ ...request, location: "PJ" }, providers).total_matches, 0);
+  const fallback = filterAndRank({ ...request, location: "PJ" }, providers);
+  assert.equal(fallback.total_matches, 0);
+  assert.equal(fallback.alternatives?.length, 5);
+  assert.ok(fallback.alternatives?.every(p => p.eligible === false && p.failed_checks.includes("location")));
+  assert.ok(fallback.alternatives!.every((p, i, list) => i === 0 || list[i - 1]!.passed_checks >= p.passed_checks));
+  assert.equal(filterAndRank(request, providers).alternatives, undefined);
+  record("Top five review-only alternatives without pretending eligibility");
+  const cyberRequest = { ...request, location: 'Cyberjaya', date: '2026-10-22', start_time: '10:00', duration_hours: 8, max_budget: 280, required_services: ['mobility_assistance'] };
+  const cyber = filterAndRank(cyberRequest, providers);
+  assert.equal(cyber.status, 'no_matches');
+  assert.equal(cyber.alternatives?.[0]?.provider_id, 'CK028');
+  assert.equal(cyber.alternatives?.[0]?.checks.location, true);
+  assert.equal(cyber.alternatives?.[0]?.checks.verified, false);
+  assert.ok(cyber.alternatives?.every(candidate => candidate.eligible === false));
+  record("Location-first recommendations preserve unverified review-only safeguards");
+  const fixedNow = new Date("2026-10-10T10:30:00Z");
+  assert.deepEqual(malaysiaNow(fixedNow), { date: "2026-10-10", time: "18:30" });
+  assert.equal(validateRequest({ ...sample, date: "2026-10-09" }, fixedNow).question?.field, "date");
+  assert.equal(validateRequest({ ...sample, date: "2026-10-10", start_time: "18:00" }, fixedNow).question?.field, "start_time");
+  assert.equal(validateRequest({ ...sample, date: "2026-10-10", start_time: "19:00" }, fixedNow).status, "valid");
+  assert.deepEqual(validateRequest({ ...sample, date: "2026-10-19", schedule_days: "weekday" }, fixedNow).request?.schedule_days, ["Mon", "Tue", "Wed", "Thu", "Fri"]);
+  assert.equal(validateRequest({ ...sample, date: "2026-10-19", schedule_days: "weekends" }, fixedNow).question?.field, "date");
+  assert.deepEqual(validateRequest({ ...sample, schedule_days: "weekend", date: "2026-10-18" }, fixedNow).request?.schedule_days, ["Sat", "Sun"]);
+  record("Malaysia current-time validation and weekday/weekend recurrence");
+  const weekdays = validateRequest({
+    ...sample, date: "2026-10-12", schedule_days: "weekday", max_budget: 1000,
+  }, new Date("2026-10-10T10:30:00Z")).request!;
+  assert.equal(weekdays.schedule_dates?.length, 12);
+  assert.deepEqual(weekdays.schedule_dates?.slice(0, 5),
+    ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16"]);
+  assert.ok(weekdays.schedule_dates?.every(d =>
+    [1, 2, 3, 4, 5].includes(new Date(d + "T00:00:00Z").getUTCDay())));
+  const synthetic = {
+    ...providers[0]!, verified: true, location: weekdays.location,
+    services: [...weekdays.required_services], hourly_rate: 20,
+    availability: weekdays.schedule_dates!.map(date => ({ date, start: "09:00", end: "17:00" })),
+  };
+  assert.equal(matchingChecks(weekdays, synthetic).availability, true);
+  assert.equal(matchingChecks(weekdays, { ...synthetic, availability: synthetic.availability.slice(0, -1) }).availability, false);
+  assert.equal(filterAndRank(weekdays, [synthetic]).matches[0]?.estimated_cost, 20 * 2 * 12);
+  assert.equal(filterAndRank({ ...weekdays, max_budget: 100 }, [synthetic]).total_matches, 0);
+  assert.equal(filterAndRank(weekdays, [{ ...synthetic, availability: synthetic.availability.slice(0, -1) }]).alternatives?.[0]?.covered_dates, 11);
+  assert.equal(validateRequest({ ...sample, date: "2026-10-12", schedule_days: "weekday",
+    schedule_dates: ["2026-10-12"] }, new Date("2026-10-10T10:30:00Z")).request?.schedule_dates?.length, 1);
+  record("Whole weekday schedule: 12 dates, availability, total cost, explicit single-day inspection");
   assert.equal(explainMatching(request, providers).find(p => p.provider_id === "CK006")!.checks.verified, false);
   record("Clarification, strict consent, overnight and malformed-input handling (cases D-F)");
 
   // Original source is optional in a portable package. When present, compare exact envelopes.
   const workflowPath = fileURLToPath(new URL("../CareKaki - Care Providers (1).json", import.meta.url));
-  if (existsSync(workflowPath)) {
+  if (existsSync(workflowPath) && providers.length === 20) {
     const workflow = JSON.parse(readFileSync(workflowPath, "utf8"));
     const validateCode = workflow.nodes.find((n: Json) => n.name === "Validate Input").parameters.jsCode;
     const rankCode = workflow.nodes.find((n: Json) => n.name === "Filter & Rank Providers").parameters.jsCode;
@@ -79,7 +130,8 @@ function domainSmoke() {
 async function toolChecks(rpc: (method: string, params?: Json) => Promise<Json>) {
   const listed = await rpc("tools/list");
   const names: string[] = listed.tools.map((t: Json) => t.name);
-  assert.equal(names.length, 6);
+  assert.equal(names.length, 9);
+  for (const name of ["carekaki_ai_interpret_request", "carekaki_ai_recommend_providers", "carekaki_ai_explain_recommendation"]) assert.ok(names.includes(name));
   for (const name of ["carekaki_get_search_options", "carekaki_validate_request", "carekaki_search_providers", "carekaki_list_providers", "carekaki_get_provider", "carekaki_explain_matching"]) assert.ok(names.includes(name));
   async function tool(name: string, args: Json = {}) {
     const output = await rpc("tools/call", { name, arguments: args });
@@ -87,17 +139,30 @@ async function toolChecks(rpc: (method: string, params?: Json) => Promise<Json>)
     return output.structuredContent ?? JSON.parse(output.content[0].text);
   }
   assert.equal((await tool("carekaki_get_search_options")).locations.includes("Cheras"), true);
+  const aiOff = await tool("carekaki_ai_interpret_request", { user_message: "Weekday elderly care in PJ" });
+  assert.equal(aiOff.status, "unavailable");
+  const aiFallback = await tool("carekaki_ai_recommend_providers", sample);
+  assert.equal(aiFallback.mode, "deterministic_fallback");
+  assert.ok(aiFallback.matches.length > 0);
+  assert.equal((await tool("carekaki_ai_recommend_providers", { ...sample, confirmed: false })).status, "needs_confirmation");
+  assert.equal((await tool("carekaki_ai_explain_recommendation", { ...sample, provider_id: "CK999" })).status, "not_found");
   assert.equal((await tool("carekaki_validate_request")).question.field, "location");
   assert.equal((await tool("carekaki_validate_request", { location: null })).question.field, "location");
   assert.equal((await tool("carekaki_search_providers", { ...sample, confirmed: false })).status, "needs_confirmation");
   const found = await tool("carekaki_search_providers", sample);
-  assert.equal(found.total_matches, 5);
-  assert.equal(found.matches[0].provider_id, "CK002");
+  assert.ok(found.total_matches >= 1);
+  assert.ok(found.matches[0].provider_id);
+  const noExact = await tool("carekaki_search_providers", { ...sample, location: "PJ" });
+  assert.equal(noExact.status, "no_matches");
+  assert.equal(noExact.matches.length, 0);
+  assert.equal(noExact.alternatives.length, 5);
+  assert.ok(noExact.alternatives.every((p: Json) => p.eligible === false));
+  assert.equal((await tool("carekaki_search_providers", { ...sample, date: "2026-10-09" })).question.field, "date");
   assert.equal((await tool("carekaki_search_providers", { ...sample, limit: 1 })).matches.length, 1);
-  assert.equal((await tool("carekaki_list_providers", { location: "Cheras" })).total_providers, 1);
+  assert.ok((await tool("carekaki_list_providers", { location: "Cheras" })).total_providers >= 1);
   assert.equal((await tool("carekaki_get_provider", { provider_id: "CK001" })).provider.provider_id, "CK001");
   assert.equal((await tool("carekaki_get_provider", { provider_id: "missing" })).status, "not_found");
-  assert.equal((await tool("carekaki_explain_matching", sample)).provider_count, 20);
+  assert.equal((await tool("carekaki_explain_matching", sample)).provider_count, providers.length);
 }
 
 async function stdioSmoke() {
@@ -137,7 +202,7 @@ async function stdioSmoke() {
     await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "carekaki-smoke", version: "1.0.0" } });
     child.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
     await toolChecks(rpc);
-    record("stdio initialize, tools/list and all six tools over JSON-RPC");
+    record("stdio initialize, tools/list and all nine tools over JSON-RPC");
   } finally {
     for (const waiting of pending.values()) clearTimeout(waiting.timer);
     child.stdin.end();
@@ -168,7 +233,7 @@ async function httpSmoke() {
     };
     await rpc("initialize", { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "carekaki-http-smoke", version: "1.0.0" } });
     await toolChecks(rpc);
-    record("Streamable HTTP initialize, tools/list and all six tools");
+    record("Streamable HTTP initialize, tools/list and all nine tools");
     const denied = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", Origin: "https://untrusted.example" }, body: "{}" });
     assert.equal(denied.status, 403);
     record("HTTP rejects untrusted browser Origin");

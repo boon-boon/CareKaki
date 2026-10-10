@@ -14,16 +14,23 @@
     "carekaki_providers_demo.csv"
   ],
   "scripts": {
-    "start": "node --env-file-if-exists=.env dist/index.js",
+    "postinstall": "npm --prefix carekaki-ux install",
+    "prestart": "npm run build",
+    "start": "node scripts/serve-prod.mjs",
+    "start:full": "npm run build:all && node scripts/serve-prod.mjs",
     "stdio": "node --env-file-if-exists=.env dist/index.js",
     "http": "node --env-file-if-exists=.env dist/http.js",
     "smoke": "node dist/smoke.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "ux:build": "npm --prefix carekaki-ux run build",
-    "ux:start": "npm --prefix carekaki-ux start"
+    "sync:frontend": "node scripts/sync-frontend.mjs",
+    "ux:start": "npm --prefix carekaki-ux start",
+    "build:all": "npm run build && npm run ux:build && npm run sync:frontend",
+    "serve:prod": "node scripts/serve-prod.mjs"
   },
   "dependencies": {
+    "@google/genai": "^2.28.0",
     "@modelcontextprotocol/express": "^2.0.2",
     "@modelcontextprotocol/node": "^2.1.1",
     "@modelcontextprotocol/server": "^2.3.1",

@@ -18,11 +18,11 @@ export interface McpCallLog {
 
 @Injectable({ providedIn: 'root' })
 export class CareKakiMcpService {
-  // Use relative endpoint if running via dev-server proxy, fallback to direct port 3000
+  // Always call the API on the same origin: in production the MCP server serves
+  // this SPA on one port, and `ng serve` proxies /mcp to 127.0.0.1:3000 (see proxy.conf.json).
+  // Set globalThis.__CAREKAKI_MCP_URL__ at runtime to point at a different endpoint.
   readonly serverUrl = signal<string>(
-    typeof window !== 'undefined' && window.location && window.location.port === '4200'
-      ? '/mcp'
-      : 'http://127.0.0.1:3000/mcp'
+    (globalThis as { __CAREKAKI_MCP_URL__?: string }).__CAREKAKI_MCP_URL__ ?? '/mcp'
   );
   readonly status = signal<'online' | 'offline' | 'checking'>('checking');
   readonly serverInfo = signal<{ name: string; version: string; tools: string[] } | null>(null);
@@ -95,7 +95,7 @@ export class CareKakiMcpService {
         'MCP-Protocol-Version': '2025-03-26',
       },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(25000),
     });
 
     if (!res.ok) {
@@ -165,6 +165,30 @@ export class CareKakiMcpService {
       });
       throw err;
     }
+  }
+
+  async interpretCareRequest(user_message: string, current_draft: Record<string, any> = {}) {
+    return this.callTool<{
+      status: string;
+      mode: string;
+      patch?: Record<string, any>;
+      budget_scope?: string;
+      ambiguous_fields?: string[];
+      missing_fields?: string[];
+      clarification_question?: string;
+    }>('carekaki_ai_interpret_request', { user_message, current_draft });
+  }
+
+  async aiSearchProviders(request: Record<string, any>, limit = 5): Promise<McpSearchResult> {
+    return this.callTool<McpSearchResult>('carekaki_ai_recommend_providers', {
+      ...request, confirmed: true, limit,
+    });
+  }
+
+  async explainAIRecommendation(request: Record<string, any>, provider_id: string, compare_with_id?: string) {
+    return this.callTool('carekaki_ai_explain_recommendation', {
+      ...request, confirmed: true, provider_id, compare_with_id,
+    });
   }
 
   // ============================================================

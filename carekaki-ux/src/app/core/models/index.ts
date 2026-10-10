@@ -221,7 +221,7 @@ export interface ActivityItem {
 
 /* ============================================================
    CareKaki MCP Integration Types
-   Mirroring tools on http://127.0.0.1:3000/mcp
+   Mirroring the MCP tools served on the same origin (relative /mcp)
    ============================================================ */
 
 export interface McpChoice {
@@ -244,6 +244,8 @@ export interface McpDraftRequest {
   duration_hours?: number;
   max_budget?: number;
   preferred_language?: string;
+  schedule_days?: string[];
+  schedule_dates?: string[];
 }
 
 export interface McpValidationResult {
@@ -257,6 +259,8 @@ export interface McpValidationResult {
     duration_hours: number;
     max_budget: number;
     preferred_language: string;
+    schedule_days?: string[];
+    schedule_dates?: string[];
   };
   draft_request?: McpDraftRequest;
   question?: McpQuestion;
@@ -265,6 +269,7 @@ export interface McpValidationResult {
 }
 
 export interface McpProviderMatch {
+  ai?: { rank: number; suitability: 'excellent' | 'good' | 'fair' | 'limited'; strengths: string[]; tradeoffs: string[]; explanation: string };
   provider_id: string;
   name: string;
   location: string;
@@ -277,13 +282,26 @@ export interface McpProviderMatch {
   preferred_language_match: boolean;
   available: true;
   match_score: number;
+  covered_dates?: number;
+  requested_dates?: number;
+}
+
+export interface McpProviderAlternative extends Omit<McpProviderMatch, 'available'> {
+  available: boolean;
+  eligible: false;
+  passed_checks: number;
+  failed_checks: string[];
+  checks: { location: boolean; services: boolean; verified: boolean; availability: boolean; budget: boolean };
+  unavailable_dates?: string[];
 }
 
 export interface McpSearchResult {
+  mode?: 'ai' | 'deterministic_fallback';
   status: 'matches_found' | 'no_matches' | 'needs_clarification' | 'needs_confirmation' | 'invalid_request';
   request?: any;
   total_matches?: number;
   matches?: McpProviderMatch[];
+  alternatives?: McpProviderAlternative[];
   data_source?: 'fictional_demo';
   booking_status?: 'not_booked';
   question?: McpQuestion;
@@ -295,6 +313,7 @@ export interface McpSearchResult {
 export interface McpSearchOptions {
   locations: string[];
   service_codes: string[];
+  languages: string[];
   available_dates: string[];
   start_times: McpChoice[];
   duration_hours: number[];
@@ -320,5 +339,8 @@ export interface McpDiagnostic {
     verified: boolean;
     availability: Array<{ date: string; start: string; end: string }>;
     estimated_cost: number;
+    covered_dates?: number;
+    requested_dates?: number;
+    unavailable_dates?: string[];
   };
 }

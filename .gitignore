@@ -24,8 +24,22 @@ extracted_carekaki_files.json
 carekaki_spec.txt
 full_carekaki_spec.md
 
+# Shared-link / page extraction scratch
+cdn_index.html
+fetched_page.html
+conversation_data.json
+conv_summary.txt
+parse_conv.py
+
+# Local dev-server logs
+serve-ux*.log
+*.log
+
 # OS & Editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+
+# Committed SPA bundle is intentionally tracked so hosts that strip build
+# output can still serve the UI.

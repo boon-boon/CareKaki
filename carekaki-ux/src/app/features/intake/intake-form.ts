@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { IconComponent } from '../../shared/icon/icon';
 import { MockDataService } from '../../core/services/mock-data.service';
 import { CareKakiMcpService } from '../../core/services/carekaki-mcp.service';
+import { CareBookingSessionService } from '../../core/services/care-booking-session.service';
 import { IntakeEntities, ServiceType, McpValidationResult } from '../../core/models';
 
 interface ExamplePrompt {
@@ -32,6 +33,17 @@ function clockMinutes(hour: string, minute = '0', meridiem?: string): number | n
 
 function clockText(minutes: number): string {
   return `${Math.floor(minutes / 60).toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}`;
+}
+
+/** Budget defaults to MYR. A bare number is valid only in the budget answer field. */
+export function parseBudgetMYR(text: string, allowBareAmount = false): number | undefined {
+  const amount = text.match(/\b(?:rm|myr)\s*(\d+(?:\.\d+)?)\b/i)
+    ?? text.match(/\b(\d+(?:\.\d+)?)\s*(?:rm|myr|ringgit)\b/i)
+    ?? text.match(/\b(?:total\s+)?budget\s*(?:(?:is|of)\s+|:\s*)?(\d+(?:\.\d+)?)\b/i)
+    ?? text.match(/\b(?:maximum|max)\s+(?:budget\s*)?(?:(?:is|of)\s+|:\s*)?(\d+(?:\.\d+)?)\b/i)
+    ?? (allowBareAmount ? text.trim().match(/^(\d+(?:\.\d+)?)$/) : null);
+  const value = Number(amount?.[1]);
+  return Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
 export function shiftEnd(start: string, duration: number): string {
@@ -120,11 +132,7 @@ export function extractCareTiming(text: string, defaultYear = 2026) {
     });
   }
 
-  // 7. Relative colloquial dates
-  if (!date && /next\s+monday/i.test(masked)) {
-    date = '2026-10-12';
-    masked = masked.replace(/next\s+monday/gi, '           ');
-  }
+  // Relative weekdays are resolved dynamically by parseCareSchedule.
 
   let start = '';
   let end = '';
@@ -163,6 +171,17 @@ export function extractCareTiming(text: string, defaultYear = 2026) {
     }
   }
 
+  // Accept unambiguous standalone times: "1pm", "1 pm", "13:00".
+  // A bare number like "150" is never interpreted as a clock time.
+  if (!start) {
+    const standalone = masked.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i)
+      ?? masked.match(/\b(\d{1,2}):(\d{2})\b/);
+    if (standalone) {
+      const minutes = clockMinutes(standalone[1], standalone[2], standalone[3]);
+      if (minutes !== null) start = clockText(minutes);
+    }
+  }
+
   if (start && duration > 0 && !end) {
     end = shiftEnd(start, duration);
   }
@@ -197,8 +216,11 @@ const DAY_WORDS: { name: string; full: string; abbr: string; js: number }[] = [
 ];
 
 function todayIso(): string {
-  const d = new Date();
-  return `${d.getFullYear().toString().padStart(4, '0')}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? '';
+  return get('year') + '-' + get('month') + '-' + get('day');
 }
 
 function isoAddDays(iso: string, n: number): string {
@@ -236,10 +258,10 @@ function isDailyRecurrence(t: string): boolean {
 /** Detect which weekly days a phrase refers to (canonical Mon..Sun order). */
 function detectScheduleDays(text: string): string[] {
   const t = text.toLowerCase();
-  if (/weekday|monday\s*(?:to|-|–|through)\s*friday|mon\s*-?\s*fri/.test(t)) {
+  if (/\bweekdays?\b|monday\s*(?:to|-|–|through)\s*friday|mon\s*-?\s*fri/.test(t)) {
     return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
   }
-  if (/\bweekend\b/.test(t)) {
+  if (/\bweekends?\b/.test(t)) {
     return ['Sat', 'Sun'];
   }
   if (isDailyRecurrence(t)) {
@@ -256,7 +278,7 @@ function detectScheduleDays(text: string): string[] {
 function isRecurringSchedule(text: string, days: string[]): boolean {
   const t = text.toLowerCase();
   if (days.length >= 2) return true;
-  if (/\bweekend\b|weekday/.test(t)) return true;
+  if (/\bweekends?\b|\bweekdays?\b/.test(t)) return true;
   if (isDailyRecurrence(t)) return true;
   if (/\b(mondays|tuesdays|wednesdays|thursdays|fridays|saturdays|sundays)\b/.test(t)) return true;
   if (/\bevery\s+(mon|tue|wed|thu|fri|sat|sun)/.test(t)) return true;
@@ -299,6 +321,11 @@ export interface ParsedCareSchedule {
 export function parseCareSchedule(text: string): ParsedCareSchedule {
   const timing = extractCareTiming(text);
   const today = todayIso();
+  const clockParts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Kuala_Lumpur', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date());
+  const currentTime = (clockParts.find(p => p.type === 'hour')?.value ?? '00') + ':' +
+    (clockParts.find(p => p.type === 'minute')?.value ?? '00');
   const days = detectScheduleDays(text);
   const recurring = isRecurringSchedule(text, days);
 
@@ -316,7 +343,8 @@ export function parseCareSchedule(text: string): ParsedCareSchedule {
 
   let concreteDates: string[] = [];
   if (recurring && days.length) {
-    concreteDates = expandScheduleDates(anchor || today, days);
+    const first = anchor || (timing.start && timing.start < currentTime ? isoAddDays(today, 1) : today);
+    concreteDates = expandScheduleDates(first, days);
   } else if (anchor) {
     concreteDates = [anchor];
   } else if (days.length === 1) {
@@ -381,7 +409,7 @@ const CLARIFY_META: Record<string, ClarifyMeta> = {
   start_time: {
     label: 'Start Time',
     prompt: 'What time should the shift start?',
-    placeholder: 'e.g. 09:00 or 9am',
+    placeholder: 'e.g. 1pm, 13:00 or 9am',
     hint: 'You can also give a full range like “9am to 5pm” — the duration is worked out for you.',
     icon: 'clock',
     suggestions: ['09:00', '08:00', '10:00', '14:00'],
@@ -399,11 +427,11 @@ const CLARIFY_META: Record<string, ClarifyMeta> = {
   max_budget: {
     label: 'Total Budget',
     prompt: 'What is your total budget for this care?',
-    placeholder: 'e.g. RM200',
-    hint: 'Give an amount in Malaysian Ringgit.',
+    placeholder: 'e.g. 150 or RM200',
+    hint: 'Enter an amount — Malaysian Ringgit (RM) is the default currency.',
     icon: 'shield',
     suggestions: ['RM200', 'RM350', 'RM500'],
-    examples: ['RM200', 'budget is RM350'],
+    examples: ['150', 'RM200', 'budget is 350'],
   },
   required_services: {
     label: 'Care Services Needed',
@@ -434,8 +462,20 @@ export class IntakeForm {
   private readonly data = inject(MockDataService);
   protected readonly mcp = inject(CareKakiMcpService);
   private readonly router = inject(Router);
+  private readonly bookingSession = inject(CareBookingSessionService);
 
   readonly rawInput = signal('');
+  readonly aiPreferredLanguage = signal('');
+  readonly budgetConfirmation = signal<string | null>(null);
+  private applyPerVisitBudget(p: IntakeEntities, amount: number): string | null {
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+    const count = p.schedule_dates?.length || 1;
+    const total = Math.round(amount * count * 100) / 100;
+    p.max_budget = total;
+    const summary = `RM ${amount} per visit × ${count} visit(s) = RM ${total} total budget`;
+    this.budgetConfirmation.set(summary);
+    return summary;
+  }
   readonly parsing = signal(false);
   readonly parsed = signal<IntakeEntities | null>(null);
   readonly intakeId = signal('');
@@ -463,6 +503,20 @@ export class IntakeForm {
   readonly clarifyFlash = signal<string | null>(null);
   /** Guards against re-opening the panel for a question the user already dismissed. */
   private dismissedField = '';
+
+  constructor() {
+    const pending = this.bookingSession.current();
+    if (pending) {
+      this.rawInput.set(pending.rawInput);
+      this.parsed.set(structuredClone(pending.intake));
+      this.intakeId.set(pending.intakeId);
+      this.missingSlots.set([]);
+      this.mcpConfirmed.set(true);
+      this.aiPreferredLanguage.set(pending.request.preferred_language);
+      // The MCP server remains the authority for validation when returning.
+      void this.validateWithMcp();
+    }
+  }
 
   /** Fields the MCP state machine requires before it will confirm a request. */
   private readonly requiredFields = [
@@ -563,6 +617,8 @@ export class IntakeForm {
   private resetState() {
     this.parsed.set(null);
     this.missingSlots.set([]);
+    this.aiPreferredLanguage.set('');
+    this.budgetConfirmation.set(null);
     this.intakeId.set('');
     this.mcpValidation.set(null);
     this.mcpConfirmed.set(false);
@@ -577,8 +633,8 @@ export class IntakeForm {
     this.dismissedField = '';
   }
 
-  /** Entity extraction from natural language */
-  parseIntake() {
+  /** Gemini-first intake with existing local parser as a labeled fallback. */
+  async parseIntake() {
     const text = this.rawInput().trim();
     if (!text) return;
 
@@ -591,17 +647,68 @@ export class IntakeForm {
     this.dismissedField = '';
     this.showClarifyPanel.set(false);
 
-    // Realistic agent latency
-    setTimeout(async () => {
-      const entities = this.extractEntities(text);
-      this.parsed.set(entities.entities);
-      this.missingSlots.set(entities.missing);
+    try {
+      const fallback = this.extractEntities(text);
+      const p = fallback.entities;
+      let missing = fallback.missing;
+      const inferred = await this.mcp.interpretCareRequest(text);
+      if (inferred.status === 'extracted' && inferred.patch) {
+        const patch = inferred.patch as { location?: string; required_services?: string[]; service_type?: string; patient_conditions?: string; preferred_language?: string; date?: string; start_time?: string; duration_hours?: number; max_budget?: number; budget_per_visit?: number; schedule_days?: string[] };
+        if (patch.location) {
+          p.location = patch.location;
+          p.location_zone = patch.location;
+        }
+        if (patch.required_services?.length) p.required_services = [...patch.required_services];
+        if (patch.service_type) p.service_type = patch.service_type;
+        if (patch.patient_conditions) p.patient_conditions = patch.patient_conditions;
+        if (patch.preferred_language) {
+          // Optional ranking preference is kept in the draft's validated request.
+          this.aiPreferredLanguage.set(patch.preferred_language);
+        }
+        if (patch.date) p.start_date = patch.date;
+        if (patch.start_time) p.shift_hours.start = patch.start_time;
+        if (typeof patch.duration_hours === 'number') p.shift_hours.duration_hours = patch.duration_hours;
+        if (typeof patch.max_budget === 'number') p.max_budget = patch.max_budget;
+        if (inferred.budget_scope === 'per_visit') p.max_budget = undefined;
+        if (patch.schedule_days?.length) {
+          p.schedule_days = [...patch.schedule_days];
+          p.shift_hours.days = [...patch.schedule_days];
+        }
+        // Schedule expansion belongs to deterministic code, not the LLM.
+        if (p.schedule_days?.length && p.start_date && /^\d{4}-\d{2}-\d{2}$/.test(p.start_date)) {
+          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          const anchor = new Date(p.start_date + 'T00:00:00Z');
+          const dates: string[] = [];
+          if (!Number.isNaN(anchor.getTime())) {
+            for (let i = 0; i < 90 && dates.length < 12; i++) {
+              const d = new Date(anchor.getTime() + i * 86400000);
+              if (p.schedule_days.includes(days[d.getUTCDay()])) dates.push(d.toISOString().slice(0, 10));
+            }
+          }
+          p.schedule_dates = dates;
+        }
+        if (inferred.budget_scope === 'per_visit' && typeof patch.budget_per_visit === 'number') this.applyPerVisitBudget(p, patch.budget_per_visit);
+        p.shift_hours.end = shiftEnd(p.shift_hours.start, p.shift_hours.duration_hours);
+        missing = this.requiredFields.filter(field => !this.isFieldSatisfied(field, p));
+        missing = [...new Set([...missing, ...(inferred.ambiguous_fields ?? [])])];
+      }
+      // Do not overwrite a newer user request with an older inference response.
+      if (text !== this.rawInput().trim()) return;
+      this.parsed.set(p);
+      this.missingSlots.set(missing);
       this.intakeId.set('INT-' + this.timestampId());
-      this.parsing.set(false);
-
-      // Auto-validate with MCP if server is online
       await this.validateWithMcp();
-    }, 600);
+    } catch (error) {
+      console.warn('AI intake unavailable, using deterministic extraction:', error);
+      if (text !== this.rawInput().trim()) return;
+      const fallback = this.extractEntities(text);
+      this.parsed.set(fallback.entities);
+      this.missingSlots.set(fallback.missing);
+      this.intakeId.set('INT-' + this.timestampId());
+      await this.validateWithMcp();
+    } finally {
+      if (text === this.rawInput().trim()) this.parsing.set(false);
+    }
   }
 
   /**
@@ -613,6 +720,27 @@ export class IntakeForm {
 
     this.mcpValidating.set(true);
     try {
+      // If a recurring schedule was requested without an explicit calendar date,
+      // never include a visit whose start time has already passed today.
+      // Move to the next valid recurring date, NOT a different time.
+      if (p.schedule_days?.length && p.start_date && p.shift_hours.start &&
+          !extractCareTiming(this.rawInput()).date) {
+        const parts = new Intl.DateTimeFormat('en-GB', {
+          timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: '2-digit',
+          day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+        }).formatToParts(new Date());
+        const get = (key: string) => parts.find(part => part.type === key)?.value ?? '';
+        const localDate = get('year') + '-' + get('month') + '-' + get('day');
+        const localTime = get('hour') + ':' + get('minute');
+        if (p.start_date === localDate && p.shift_hours.start < localTime) {
+          const next = expandScheduleDates(isoAddDays(localDate, 1), p.schedule_days);
+          if (next.length) {
+            p.start_date = next[0];
+            p.schedule_dates = next;
+            this.parsed.set({ ...p, shift_hours: { ...p.shift_hours } });
+          }
+        }
+      }
       // Map entity model to MCP CareRequest parameters
       const reqPayload: Record<string, any> = {
         location: p.location.includes('Petaling Jaya') ? 'Petaling Jaya' :
@@ -625,7 +753,9 @@ export class IntakeForm {
         duration_hours: p.shift_hours.duration_hours || undefined,
         required_services: p.required_services,
         max_budget: p.max_budget,
-        preferred_language: '',
+        preferred_language: this.aiPreferredLanguage(),
+        schedule_days: p.schedule_days ?? [],
+        ...(p.schedule_dates?.length ? { schedule_dates: p.schedule_dates } : {}),
         confirmed: this.mcpConfirmed(),
       };
 
@@ -635,6 +765,8 @@ export class IntakeForm {
 
       // If the MCP needs more detail, surface the question prominently.
       if (result.status === 'needs_clarification' && result.question) {
+        this.mcpConfirmed.set(false);
+        this.missingSlots.update(fields => [...new Set([...fields, ...(result.missing_fields ?? [])])]);
         const field = result.question.field;
         if (field !== this.dismissedField) {
           this.clarifyField.set(field);
@@ -719,11 +851,12 @@ export class IntakeForm {
     this.selectMcpChoice('date', pv.raw);
   }
 
-  /** Pick one concrete date from the expanded recurring schedule as the active search date. */
+  /** Move the recurring schedule's first date; all later visits remain included. */
   chooseScheduleDate(iso: string) {
     const p = this.parsed();
     if (!p) return;
     p.start_date = iso;
+    p.schedule_dates = (p.schedule_dates ?? []).filter(date => date >= iso);
     this.missingSlots.update(f => f.filter(slot => slot !== 'date'));
     this.mcpConfirmed.set(false);
     this.parsed.set({ ...p, shift_hours: { ...p.shift_hours } });
@@ -898,7 +1031,7 @@ export class IntakeForm {
       understood.push(`Duration → ${s.duration}h`);
     }
 
-    const budget = this.detectBudget(raw);
+    const budget = parseBudgetMYR(raw, requiredField === 'max_budget');
     if (budget) {
       p.max_budget = budget;
       understood.push(`Budget → RM ${budget}`);
@@ -914,6 +1047,59 @@ export class IntakeForm {
     if (serviceType) {
       p.service_type = serviceType;
       understood.push(`Service type → ${SERVICE_TYPE_LABEL[serviceType] ?? serviceType}`);
+    }
+
+    // Gemini reinterprets clarification answers as patches to the existing draft.
+    // If the model is disabled/unavailable, keep the original deterministic parser.
+    try {
+      const inferred = await this.mcp.interpretCareRequest(raw, {
+        location: current.location_zone,
+        required_services: current.required_services,
+        date: current.start_date,
+        start_time: current.shift_hours.start,
+        duration_hours: current.shift_hours.duration_hours,
+        max_budget: current.max_budget,
+        schedule_days: current.schedule_days,
+      });
+      if (inferred.status === 'extracted' && inferred.patch) {
+        const patch = inferred.patch as { location?: string; required_services?: string[];
+          service_type?: string; patient_conditions?: string; preferred_language?: string;
+          date?: string; start_time?: string; duration_hours?: number;
+          max_budget?: number; budget_per_visit?: number; schedule_days?: string[] };
+        if (patch.location) { p.location = patch.location; p.location_zone = patch.location; understood.push('Location updated by Gemini'); }
+        if (patch.required_services?.length) { p.required_services = [...patch.required_services]; understood.push('Services updated by Gemini'); }
+        if (patch.service_type) p.service_type = patch.service_type;
+        if (patch.patient_conditions) p.patient_conditions = patch.patient_conditions;
+        if (patch.preferred_language) this.aiPreferredLanguage.set(patch.preferred_language);
+        if (patch.date) { p.start_date = patch.date; understood.push('Date updated by Gemini'); }
+        if (patch.start_time) { p.shift_hours.start = patch.start_time; understood.push('Start time updated by Gemini'); }
+        if (typeof patch.duration_hours === 'number') { p.shift_hours.duration_hours = patch.duration_hours; understood.push('Duration updated by Gemini'); }
+        if (typeof patch.max_budget === 'number') { p.max_budget = patch.max_budget; understood.push('Budget updated by Gemini'); }
+        if (inferred.budget_scope === 'per_visit') p.max_budget = undefined;
+        if (patch.schedule_days?.length) {
+          p.schedule_days = [...patch.schedule_days];
+          p.shift_hours.days = [...patch.schedule_days];
+          understood.push('Recurring days updated by Gemini');
+        }
+        if (p.schedule_days?.length && p.start_date && /^\d{4}-\d{2}-\d{2}$/.test(p.start_date)) {
+          const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+          const anchor = new Date(p.start_date + 'T00:00:00Z');
+          const schedule: string[] = [];
+          if (!Number.isNaN(anchor.getTime())) {
+            for (let i = 0; i < 90 && schedule.length < 12; i++) {
+              const d = new Date(anchor.getTime() + i * 86400000);
+              if (p.schedule_days.includes(weekdayNames[d.getUTCDay()])) schedule.push(d.toISOString().slice(0, 10));
+            }
+          }
+          p.schedule_dates = schedule;
+        }
+        if (inferred.budget_scope === 'per_visit' && typeof patch.budget_per_visit === 'number') {
+          const summary = this.applyPerVisitBudget(p, patch.budget_per_visit);
+          if (summary) understood.push(summary);
+        }
+      }
+    } catch (error) {
+      console.warn('Gemini clarification fallback:', error);
     }
 
     // --- The asked-about field MUST be satisfied ---
@@ -964,11 +1150,11 @@ export class IntakeForm {
       case 'date':
         return `I couldn't find a date in “${raw}”. Try “2026-10-17”, “1 November”, “next Monday”, or a repeating pattern like “Saturdays and Sundays starting 1 November”.`;
       case 'start_time':
-        return `I couldn't read a start time from “${raw}”. Try “09:00”, “9am”, or a range like “9am to 5pm”.`;
+        return `I couldn't read a start time from “${raw}”. Try “1pm”, “13:00”, or a range like “9am to 5pm”.`;
       case 'duration_hours':
         return `I couldn't work out a duration from “${raw}”. Try “2 hours”, “90 minutes”, or a range like “9am to 5pm”.`;
       case 'max_budget':
-        return `I couldn't read a budget from “${raw}”. Try an amount like “RM200”.`;
+        return `I couldn't read a budget from “${raw}”. Try “150” or “RM200” (MYR is the default).`;
       case 'required_services':
         return `I couldn't match “${raw}” to a care service. Try “elderly care”, “mobility assistance”, “companionship” or “dementia care”.`;
       default:
@@ -1015,13 +1201,6 @@ export class IntakeForm {
     return null;
   }
 
-  private detectBudget(text: string): number | undefined {
-    const m = text.match(/\b(?:rm|myr)\s*(\d+(?:\.\d+)?)\b/i) ?? text.match(/\b(\d+(?:\.\d+)?)\s*(?:rm|myr|ringgit)\b/i);
-    if (!m) return undefined;
-    const value = Number(m[1]);
-    return Number.isFinite(value) && value > 0 ? value : undefined;
-  }
-
   private detectRequiredServices(text: string): string[] {
     const out: string[] = [];
     if (/\belderly|eldercare|home care|nurs(?:e|ing)\b/i.test(text)) out.push('elderly_care');
@@ -1038,11 +1217,13 @@ export class IntakeForm {
     this.mcpConfirmed.set(true);
     await this.validateWithMcp();
     const p = this.parsed();
-    if (p) {
+    const validation = this.mcpValidation();
+    if (p && validation?.status === 'valid' && validation.request) {
+      this.bookingSession.begin(p, validation.request, this.rawInput(), this.intakeId());
       this.data.activeIntake.set({ ...p, shift_hours: { ...p.shift_hours } });
       this.data.activeScheduleDates.set(p.schedule_dates && p.schedule_dates.length > 1 ? p.schedule_dates : []);
+      await this.router.navigate(['/matching']);
     }
-    this.router.navigate(['/matching']);
   }
 
   private extractEntities(text: string): { entities: IntakeEntities; missing: string[] } {
@@ -1068,7 +1249,7 @@ export class IntakeForm {
     if (!startDate) missing.push('date');
     if (!start) missing.push('start_time');
     if (!Number.isFinite(duration) || duration <= 0) missing.push('duration_hours');
-    const maxBudget = this.detectBudget(text);
+    const maxBudget = parseBudgetMYR(text);
     if (!maxBudget || maxBudget <= 0) missing.push('max_budget');
     const requiredServices = this.detectRequiredServices(text);
     if (!requiredServices.length) missing.push('required_services');

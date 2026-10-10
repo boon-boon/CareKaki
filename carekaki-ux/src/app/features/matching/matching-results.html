@@ -64,34 +64,50 @@
           <div class="form-group">
             <label class="form-label">City Location</label>
             <select class="select" [ngModel]="searchCity()" (ngModelChange)="searchCity.set($event); runMcpSearch()">
-              <option value="Petaling Jaya">Petaling Jaya</option>
-              <option value="Subang Jaya">Subang Jaya</option>
-              <option value="Kuala Lumpur">Kuala Lumpur</option>
-              <option value="Shah Alam">Shah Alam</option>
-              <option value="Cheras">Cheras</option>
+              @for (city of catalogueCities(); track city) {
+                <option [value]="city">{{ city }}</option>
+              }
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">Care Service</label>
-            <select class="select" [ngModel]="searchService()" (ngModelChange)="searchService.set($event); runMcpSearch()">
-              <option value="elderly_care">Elderly Care</option>
-              <option value="mobility_assistance">Mobility Assistance</option>
-              <option value="companionship">Companionship</option>
-              <option value="dementia_care">Dementia Care</option>
-            </select>
+            <div class="care-service-options">
+              @for (option of serviceOptions(); track option.code) {
+                <label
+                  class="care-service-option"
+                  [class.checked]="searchServices().includes(option.code)"
+                >
+                  <input
+                    type="checkbox"
+                    [checked]="searchServices().includes(option.code)"
+                    (change)="toggleService(option.code, $any($event.target).checked, $any($event.target))"
+                  />
+                  <span class="care-service-label">{{ option.label }}</span>
+                </label>
+              }
+            </div>
           </div>
           <div class="form-group">
-            <label class="form-label">Date</label>
-            <input type="date" class="input" [ngModel]="searchDate()" (ngModelChange)="searchDate.set($event); runMcpSearch()"/>
+            <label class="form-label">{{ scheduleMode() === 'all' ? 'Schedule Start Date' : 'Care Date' }}</label>
+            <input type="date" class="input" [min]="todayMalaysiaDate" [ngModel]="searchDate()" (ngModelChange)="changeSearchDate($event)"/>
           </div>
           @if (scheduleDates().length > 1) {
             <div class="form-group form-group-full">
-              <label class="form-label">Recurring schedule — switch occurrence to search</label>
+              <label class="form-label">Recurring {{ recurringLabel }} — whole schedule or single-date inspection</label>
+              <p class="form-hint">
+                @if (scheduleMode() === 'all') {
+                  Searching <strong>all {{ scheduleDates().length }} visits</strong> together. The total budget covers every visit.
+                } @else {
+                  Inspecting <strong>only {{ shortDate(searchDate()) }}</strong>. Your recurring schedule is still saved.
+                }
+              </p>
               <div class="schedule-chip-row">
+                <button class="schedule-chip" [class.active]="scheduleMode() === 'all'"
+                  (click)="useFullSchedule()">Entire {{ recurringLabel }} schedule ({{ scheduleDates().length }} visits)</button>
                 @for (d of scheduleDates(); track d) {
                   <button
                     class="schedule-chip"
-                    [class.active]="d === searchDate()"
+                    [class.active]="scheduleMode() === 'single' && d === searchDate()"
                     (click)="useScheduleDate(d)"
                   >{{ shortDate(d) }}</button>
                 }
@@ -100,38 +116,23 @@
           }
           <div class="form-group">
             <label class="form-label">Start Time</label>
-            <select class="select" [ngModel]="searchTime()" (ngModelChange)="searchTime.set($event); runMcpSearch()">
-              <option value="09:00">09:00 (Morning)</option>
-              <option value="13:00">13:00 (Afternoon)</option>
-              <option value="18:00">18:00 (Evening)</option>
-            </select>
+            <input type="time" class="input" [ngModel]="searchTime()" (ngModelChange)="searchTime.set($event); runMcpSearch()" step="60"/>
           </div>
           <div class="form-group">
             <label class="form-label">Duration</label>
-            <select class="select" [ngModel]="searchDuration()" (ngModelChange)="searchDuration.set($event); runMcpSearch()">
-              <option [value]="2">2 hours</option>
-              <option [value]="4">4 hours</option>
-              <option [value]="6">6 hours</option>
-              <option [value]="8">8 hours</option>
-            </select>
+            <input type="number" class="input" min="0.1" max="24" step="0.1" [ngModel]="searchDuration()" (ngModelChange)="searchDuration.set($event); runMcpSearch()"/>
           </div>
           <div class="form-group">
-            <label class="form-label">Max Budget (MYR)</label>
-            <select class="select" [ngModel]="searchBudget()" (ngModelChange)="searchBudget.set($event); runMcpSearch()">
-              <option [value]="100">RM 100</option>
-              <option [value]="150">RM 150</option>
-              <option [value]="200">RM 200</option>
-              <option [value]="300">RM 300</option>
-            </select>
+            <label class="form-label">Total Budget (MYR) — {{ scheduleMode() === 'all' && scheduleDates().length > 1 ? 'all visits' : 'selected visit' }}</label>
+            <input type="number" class="input" min="1" step="0.01" [ngModel]="searchBudget()" (ngModelChange)="searchBudget.set($event); runMcpSearch()"/>
           </div>
           <div class="form-group">
             <label class="form-label">Preferred Language (Optional)</label>
             <select class="select" [ngModel]="searchLanguage()" (ngModelChange)="searchLanguage.set($event); runMcpSearch()">
               <option value="">No preference</option>
-              <option value="Malay">Malay</option>
-              <option value="English">English</option>
-              <option value="Mandarin">Mandarin</option>
-              <option value="Tamil">Tamil</option>
+              @for (language of catalogueLanguages(); track language) {
+                <option [value]="language">{{ language }}</option>
+              }
             </select>
           </div>
         </div>
@@ -142,12 +143,32 @@
     <div class="formula-callout">
       <app-icon name="zap" [size]="16"/>
       <span class="formula-text">
-        CareKaki MCP Rank Formula: <strong>Rating (50%)</strong> + <strong>Affordability (35%)</strong> + <strong>Language Match (15%)</strong>. All 5 criteria (location, all services, verified, availability, budget) must be satisfied.
+        {{ inferenceMode() === 'ai' ? 'Gemini suitability ranking based on verified provider data. The previous numeric formula is not an AI score.' : 'Deterministic fallback ranking: Rating 50%, Affordability 35%, Language 15%.' }} All five eligibility criteria (location, services, verification, availability and budget) remain mandatory.
       </span>
     </div>
 
+    @if (scheduleDates().length > 1) {
+      <div class="card" style="padding: 14px 20px; margin-bottom: 14px;">
+        <strong>Care frequency: {{ recurringLabel }}</strong>
+        <span> · {{ scheduleMode() === 'all' ? 'Full recurring coverage check' : 'Single-date inspection' }}</span>
+        <p style="color: var(--text-secondary); margin-top: 6px;">
+          {{ scheduleMode() === 'all' ? 'All ' + scheduleDates().length + ' upcoming visits must meet availability and the total budget.' :
+            'Only one occurrence is being inspected. Select Entire schedule to check all requested weekdays.' }}
+        </p>
+      </div>
+    }
+
+    @if (mcpError(); as error) {
+      <div class="card" style="padding: 16px; border-color: var(--amber-300);">
+        <strong>Check your search criteria</strong>
+        <p>{{ error }}</p>
+      </div>
+    }
+
     <!-- Candidate cards (MCP matches) -->
-    @if (mcpMatches().length > 0) {
+    @if (mcpLoading()) {
+      <div class="card" style="padding: 24px;">Checking provider eligibility...</div>
+    } @else if (mcpMatches().length > 0) {
       <div class="candidate-list">
         @for (c of mcpMatches(); track c.provider_id; let idx = $index) {
           <div
@@ -194,6 +215,15 @@
                 </div>
               </div>
 
+              @if (c.ai) {
+                <div style="margin: 8px 0; padding: 10px; border: 1px solid var(--teal-200); border-radius: 8px;">
+                  <strong>AI suitability: {{ c.ai.suitability }}</strong>
+                  <p>{{ c.ai.explanation }}</p>
+                  @if (c.ai.tradeoffs.length) {
+                    <p><strong>Trade-offs:</strong> {{ c.ai.tradeoffs.join('; ') }}</p>
+                  }
+                </div>
+              }
               <!-- Languages -->
               <div class="cert-list">
                 @for (lang of c.languages; track lang) {
@@ -209,7 +239,7 @@
               <div class="candidate-meta">
                 <span class="meta-item">
                   <app-icon name="dollar" [size]="14"/>
-                  RM {{ c.hourly_rate }}/hr (Est. total: <strong>RM {{ c.estimated_cost }}</strong>)
+                  RM {{ c.hourly_rate }}/hr (Estimated total for {{ c.requested_dates || 1 }} visit(s): <strong>RM {{ c.estimated_cost }}</strong>)
                 </span>
                 <span class="meta-item">
                   <app-icon name="star" [size]="14"/>
@@ -217,12 +247,13 @@
                 </span>
                 <span class="meta-item">
                   <app-icon name="check-circle" [size]="14"/>
-                  Time Slot Available
+                  {{ (c.requested_dates || 1) > 1 ? 'All ' + c.requested_dates + ' Visits Available' : 'Time Slot Available' }}
                 </span>
               </div>
             </div>
 
-            <!-- Score breakdown -->
+            <!-- Legacy score only when using deterministic fallback -->
+            @if (!c.ai) {
             <div class="score-col">
               <div class="total-score" [class]="scoreClass(c.match_score)">
                 <span class="score-num">{{ c.match_score }}</span>
@@ -247,14 +278,60 @@
                 }
               </div>
             </div>
+            }
           </div>
         }
       </div>
-    } @else {
+    } @else if (alternatives().length > 0 && !mcpError()) {
+      <section class="card" style="padding: 20px; margin-bottom: 16px;">
+        <h3>No providers meet all 5 criteria{{ scheduleMode() === 'all' ? ' for the full schedule' : '' }}</h3>
+        <p>Here are the top {{ alternatives().length }} location-first providers (including explicitly labeled unverified candidates), ranked within each location by passed
+          requirements and, where available, Gemini suitability reasoning. These suggestions are <strong>not eligible for booking yet</strong>.
+          Choose one for follow-up review or adjust your search criteria.</p>
+      </section>
+      <div class="candidate-list">
+        @for (c of alternatives(); track c.provider_id; let idx = $index) {
+          <div class="card candidate-card" [class.selected]="reviewedAlternativeId() === c.provider_id"
+            (click)="selectAlternativeForReview(c.provider_id)">
+            <div class="rank-col">
+              <span class="rank-badge">#{{ idx + 1 }}</span>
+              <span class="rank-label">Closest option</span>
+            </div>
+            <div class="candidate-info">
+              <strong class="cg-name">{{ c.name }}</strong>
+              <div class="cg-id">{{ c.provider_id }} · {{ c.location }} · {{ c.verified ? 'Verified' : 'UNVERIFIED — review only' }}</div>
+              <p><strong>{{ c.passed_checks }}/5 checks passed</strong>
+                @if (c.ai) { · AI suitability: {{ c.ai.suitability }} }
+                @else { · Deterministic score: {{ c.match_score }}/100 }
+              </p>
+              @if (c.ai) { <p><strong>AI explanation:</strong> {{ c.ai.explanation }}</p> }
+              <p><strong>Availability: {{ c.covered_dates ?? 0 }} of {{ c.requested_dates ?? 1 }} visits covered.</strong>
+                @if (c.unavailable_dates?.length) {
+                  Missing: {{ c.unavailable_dates!.slice(0, 4).join(', ') }}
+                  @if (c.unavailable_dates!.length > 4) { and {{ c.unavailable_dates!.length - 4 }} more }
+                }
+              </p>
+              <p>RM {{ c.hourly_rate }}/hour · Estimated RM {{ c.estimated_cost }} (budget RM {{ searchBudget() }})</p>
+              <p><strong>Requires review:</strong>
+                @for (check of c.failed_checks; track check) {
+                  <span class="cert-tag">{{ check === 'services' ? 'Missing requested services' :
+                    check === 'availability' ? 'Requested time not available' :
+                    check === 'location' ? 'Different location' :
+                    check === 'budget' ? 'Over budget' : 'Verification missing' }}</span>
+                }
+              </p>
+              <button type="button" class="btn btn-outline btn-sm" (click)="selectAlternativeForReview(c.provider_id); $event.stopPropagation()">
+                {{ reviewedAlternativeId() === c.provider_id ? 'Selected for follow-up review' : 'Select for review' }}
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    } @else if (!mcpError()) {
       <div class="card empty-card" style="min-height: 200px;">
         <div class="empty-state">
           <app-icon name="alert" [size]="32" style="color: var(--amber-600); margin-bottom: 8px;"/>
-          <h3 class="empty-title">No providers meet all 5 criteria</h3>
+          <h3 class="empty-title">No providers meet all 5 criteria{{ scheduleMode() === 'all' ? ' for the recurring schedule' : '' }}</h3>
           <p class="empty-text">
             No fictional providers in the catalogue matched this exact combination of city, date, time window, and budget.
             Click <strong>Explain Eligibility Diagnostics</strong> above to see why other providers were excluded.
@@ -459,7 +536,10 @@
       @if (activeTab() === 'mcp' && selectedMcp(); as s) {
         <span class="confirm-label">Selected MCP Provider</span>
         <span class="confirm-name">{{ s.name }} ({{ s.provider_id }}) · Est. RM {{ s.estimated_cost }}</span>
-      } @else if (selectedSpec(); as s) {
+      } @else if (activeTab() === 'mcp' && reviewedAlternativeId()) {
+        <span class="confirm-label">Selected for follow-up review — not submitted or booked</span>
+        <span class="confirm-name">{{ reviewedAlternativeId() }} must satisfy all criteria before confirmation.</span>
+      } @else if (activeTab() === 'spec' && selectedSpec(); as s) {
         <span class="confirm-label">Selected Spec Caregiver</span>
         <span class="confirm-name">{{ s.name }} ({{ s.caregiver_id }})</span>
       }
@@ -475,7 +555,7 @@
           <span>Generate Quotation</span>
         </a>
       } @else {
-        <button class="btn btn-primary" (click)="confirmSelection()">
+        <button class="btn btn-primary" (click)="confirmSelection()" [disabled]="activeTab() !== 'mcp' || !selectedMcp() || mcpLoading()">
           <app-icon name="check-circle" [size]="17"/>
           <span>Confirm Selection</span>
         </button>

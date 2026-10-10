@@ -1,7 +1,7 @@
 # CareKaki
 
 CareKaki is an AI-assisted respite-care operations platform for Malaysia, combining:
-1. **CareKaki MCP Server**: A standalone Model Context Protocol server exposing 6 care-matching and verification tools over `stdio` and `Streamable HTTP`.
+1. **CareKaki MCP Server**: A standalone Model Context Protocol server exposing 9 care-matching, verification, and optional Gemini AI tools over `stdio` and `Streamable HTTP`.
 2. **CareKaki Pro (Angular 22 UX)**: A modern operations dashboard for intake, caregiver rostering, AI matching, quotations, and job order tracking.
 
 ---
@@ -47,6 +47,21 @@ CareKaki is an AI-assisted respite-care operations platform for Malaysia, combin
 | `carekaki_list_providers` | Browses the demo catalogue with optional filters (city, service, rate, date). |
 | `carekaki_get_provider` | Retrieves full profile details for a provider by ID (`CK001` - `CK020`). |
 | `carekaki_explain_matching` | Returns a 5-check diagnostic explanation for why each provider passed or failed. |
+| `carekaki_ai_interpret_request` | Uses Gemini to interpret a free-text care intake as a structured, unconfirmed patch; deterministic fallback when AI is disabled. |
+| `carekaki_ai_recommend_providers` | Performs deterministic eligibility filtering first, then uses Gemini to rank the eligible provider pool or review-only alternatives. |
+| `carekaki_ai_explain_recommendation` | Explains assessed provider suitability, while preserving the original eligibility boundaries. |
+
+### Optional Gemini inference
+
+Gemini inference is disabled by default. Set `GEMINI_API_KEY` and `CAREKAKI_LLM_MODE=on` in the server's ignored `.env` file or deployment secret environment, then restart the MCP service. The default model is `gemini-2.5-flash`; override with `GEMINI_MODEL` if desired.
+
+- `CAREKAKI_LLM_MODE=off`: rule-based extraction and ranking, no Gemini calls.
+- `CAREKAKI_LLM_MODE=shadow`: call Gemini for comparison but keep deterministic outputs.
+- `CAREKAKI_LLM_MODE=on`: Angular uses Gemini for free-text intake and for ranking providers after server-side eligibility checks.
+
+Never put the key in Angular, `public/`, browser storage, logs or Git. This unauthenticated fictional-data demo needs authentication and per-user rate limiting **before** publicly enabling a paid AI endpoint. Live Gemini inference requires a valid external key, network access and available API quota.
+
+The existing CSV contains only one availability window per record. Multi-date weekday or weekend requests therefore frequently produce no fully eligible providers, independently of AI quality. Alternatives are always review-only, and the user must confirm requirements and provider selection; no booking is made automatically.
 
 ---
 

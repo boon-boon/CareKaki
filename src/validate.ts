@@ -21,8 +21,43 @@ export function isValidDate(value: unknown): value is string {
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
+/** Validate against Malaysia civil time, regardless of server location. */
+export function malaysiaNow(now = new Date()): { date: string; time: string } {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kuala_Lumpur", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(now);
+  const get = (part: string) => parts.find(p => p.type === part)?.value ?? "";
+  return { date: get("year") + "-" + get("month") + "-" + get("day"), time: get("hour") + ":" + get("minute") };
+}
+
+export function normalizeScheduleDays(value: unknown): string[] | undefined {
+  if (value == null) return undefined;
+  if (typeof value === "string") {
+    if (/^weekdays?$/i.test(value.trim())) return ["Mon", "Tue", "Wed", "Thu", "Fri"];
+    if (/^weekends?$/i.test(value.trim())) return ["Sat", "Sun"];
+    return undefined;
+  }
+  if (!Array.isArray(value) || !value.every(x => typeof x === "string")) return undefined;
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  return days.filter(d => value.some(x => x.toLowerCase() === d.toLowerCase()));
+}
+
+/** Expand a recurring pattern to its next 12 occurrences; this is a preview horizon, not an endless booking. */
+export function recurringDates(anchor: string, days: string[], max = 12): string[] {
+  const names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const selected = new Set(days);
+  const result: string[] = [];
+  const day = new Date(anchor + "T00:00:00Z");
+  for (let offset = 0; offset < 90 && result.length < max; offset++) {
+    const d = new Date(day.getTime() + offset * 86400000);
+    if (selected.has(names[d.getUTCDay()]!)) result.push(d.toISOString().slice(0, 10));
+  }
+  return result;
+}
+
 /** Faithful port of Validate Input. This function holds no conversation state. */
-export function validateRequest(body: unknown): ValidationResult {
+export function validateRequest(body: unknown, now = new Date()): ValidationResult {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return { status: "invalid_request", message: "Expected a JSON object" };
   }
@@ -66,12 +101,77 @@ export function validateRequest(body: unknown): ValidationResult {
     ask("max_budget", "What is your total budget?", "single_select", BUDGET_PRESETS.map(v => choice(`RM${v}`, v)));
   }
   request.preferred_language = typeof input.preferred_language === "string" ? input.preferred_language.trim() : "";
+  const scheduleDays = normalizeScheduleDays(input.schedule_days);
+  if (scheduleDays?.length) request.schedule_days = scheduleDays;
   if (questions.length > 0) {
     return { status: "needs_clarification", draft_request: request, question: questions[0]!, missing_fields: questions.map(q => q.field) };
   }
   // All six required fields have passed their checks above.
   const complete = request as CareRequest;
   const [hours, minutes] = complete.start_time.split(":").map(Number);
+  const current = malaysiaNow(now);
+  if (complete.date < current.date) {
+    delete request.date;
+    return {
+      status: "needs_clarification", draft_request: request, missing_fields: ["date"],
+      question: { field: "date", text: "Care date is in the past (Malaysia time). Choose today or a future date.", type: "date", options: [] },
+    };
+  }
+  if (complete.date === current.date && complete.start_time < current.time) {
+    const recurring = !!complete.schedule_days?.length;
+    if (recurring) delete request.date;
+    else delete request.start_time;
+    return {
+      status: "needs_clarification", draft_request: request,
+      missing_fields: [recurring ? "date" : "start_time"],
+      question: recurring
+        ? { field: "date", text: "Today's recurring visit would start in the past. Choose a future start date for this schedule.", type: "date", options: [] }
+        : { field: "start_time", text: "Start time has already passed in Malaysia. Choose a later time.", type: "time", options: [] },
+    };
+  }
+  if (complete.schedule_days?.length) {
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const weekday = dayNames[new Date(complete.date + "T00:00:00Z").getUTCDay()];
+    if (!complete.schedule_days.includes(weekday!)) {
+      delete request.date;
+      return {
+        status: "needs_clarification", draft_request: request, missing_fields: ["date"],
+        question: { field: "date", text: "This date does not fall on your selected recurring weekdays. Pick a scheduled day.", type: "date", options: [] },
+      };
+    }
+  }
+  // An explicit dates array has priority (including [date] for one-off inspection).
+  // Otherwise the weekday/weekend pattern expands into a bounded whole-schedule search.
+  if (input.schedule_dates !== undefined && input.schedule_dates !== null) {
+    if (!Array.isArray(input.schedule_dates) || input.schedule_dates.length < 1 ||
+        input.schedule_dates.length > 12 || !input.schedule_dates.every(isValidDate) ||
+        new Set(input.schedule_dates).size !== input.schedule_dates.length ||
+        !input.schedule_dates.includes(complete.date) ||
+        input.schedule_dates.some(d => d < current.date ||
+          (d === current.date && complete.start_time < current.time))) {
+      return {
+        status: "needs_clarification", draft_request: request, missing_fields: ["date"],
+        question: { field: "date", text: "Choose valid future schedule dates (up to 12, including the selected date).", type: "date", options: [] },
+      };
+    }
+    const supplied = [...input.schedule_dates].sort();
+    if (complete.schedule_days?.length && supplied.some(d =>
+      !complete.schedule_days!.includes(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(d + "T00:00:00Z").getUTCDay()]!))) {
+      return {
+        status: "needs_clarification", draft_request: request, missing_fields: ["date"],
+        question: { field: "date", text: "One or more selected dates are outside the requested weekdays or weekend.", type: "date", options: [] },
+      };
+    }
+    complete.schedule_dates = supplied;
+  } else if (complete.schedule_days?.length) {
+    complete.schedule_dates = recurringDates(complete.date, complete.schedule_days);
+    if (complete.schedule_dates.some(d => d === current.date && complete.start_time < current.time)) {
+      return {
+        status: "needs_clarification", draft_request: request, missing_fields: ["start_time"],
+        question: { field: "start_time", text: "Today's recurring visit would start in the past. Choose a later start time or date.", type: "time", options: [] },
+      };
+    }
+  }
   if (hours! * 60 + minutes! + complete.duration_hours * 60 > 1440) {
     delete request.start_time;
     return {

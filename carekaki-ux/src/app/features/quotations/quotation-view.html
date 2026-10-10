@@ -6,7 +6,7 @@
       <p class="page-subtitle">Generated document with SST 8% applied</p>
     </div>
     <div class="header-actions">
-      <button class="btn btn-outline" (click)="copyQuotation()">
+      <button class="btn btn-outline" (click)="copyQuotation()" [disabled]="quotationLoading() || !!quotationError()">
         <app-icon [name]="copied() ? 'check-circle' : 'copy'" [size]="17"/>
         {{ copied() ? 'Copied!' : 'Copy' }}
       </button>
@@ -17,6 +17,11 @@
     </div>
   </div>
 
+  @if (quotationLoading()) {
+    <div class="card" style="padding:24px;">Loading the selected caregiver's live rate from MCP…</div>
+  } @else if (quotationError()) {
+    <div class="card" style="padding:24px; color:#aa3030;">{{ quotationError() }}</div>
+  } @else {
   <!-- Document paper -->
   <div class="doc-paper">
     <!-- Doc header -->
@@ -85,7 +90,7 @@
         <dl class="detail-list">
           <div class="detail-row">
             <dt>Service Type</dt>
-            <dd><span class="badge badge-blue">Nursing</span></dd>
+            <dd><span class="badge badge-blue">{{ serviceLabel(quotation.service_type) }}</span></dd>
           </div>
           <div class="detail-row">
             <dt>Assigned Caregiver</dt>
@@ -231,4 +236,5 @@
       <app-icon name="arrow-right" [size]="18"/>
     </a>
   </div>
+  }
 </div>
