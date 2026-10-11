@@ -549,6 +549,43 @@ export class IntakeForm {
   /** True when the current question is the free-text date/schedule question. */
   readonly isDateQuestion = computed(() => this.clarifyField() === 'date');
 
+  /** Human-readable label for the validation status — never show the raw backend enum. */
+  readonly validationStatusLabel = computed<string>(() => {
+    const v = this.mcpValidation();
+    if (!v) return '';
+    switch (v.status) {
+      case 'valid': return 'Requirements Confirmed';
+      case 'needs_confirmation': return 'Awaiting Final Confirmation';
+      case 'needs_clarification': return 'More Details Needed';
+      case 'invalid_request': return 'Could Not Process Request';
+      default: return 'Ready to Search';
+    }
+  });
+
+  /** Short badge label summarising the current validation status. */
+  readonly validationBadgeLabel = computed<string>(() => {
+    switch (this.mcpValidation()?.status) {
+      case 'needs_clarification': return 'Clarification Required';
+      case 'needs_confirmation': return 'Confirmation Needed';
+      case 'invalid_request': return 'Action Needed';
+      default: return 'Valid & Confirmed';
+    }
+  });
+
+  /** Whether the current validation status should render with the amber (attention) badge. */
+  readonly validationIsAttention = computed<boolean>(() => {
+    const s = this.mcpValidation()?.status;
+    return s === 'needs_clarification' || s === 'needs_confirmation' || s === 'invalid_request';
+  });
+
+  /** Human-readable label for the field a clarification question refers to. */
+  readonly clarifyQuestionFieldLabel = computed<string>(() => {
+    const v = this.mcpValidation();
+    const field = v?.status === 'needs_clarification' ? v.question?.field : undefined;
+    if (!field) return '';
+    return CLARIFY_META[field]?.label ?? field.replace(/_/g, ' ');
+  });
+
   readonly answerInputId = 'ck-clarify-answer';
 
   /** 1-based position of the current question among the outstanding missing slots. */
