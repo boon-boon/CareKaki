@@ -445,14 +445,14 @@
             <div class="card-header">
               <div class="header-with-icon">
                 <app-icon name="terminal" [size]="18"/>
-                <span class="card-title">Request Status: <code>{{ val.status }}</code></span>
+                <span class="card-title">Request Status: {{ validationStatusLabel() }}</span>
               </div>
               <span
                 class="badge"
-                [class.badge-amber]="val.status === 'needs_clarification' || val.status === 'needs_confirmation'"
+                [class.badge-amber]="validationIsAttention()"
                 [class.badge-green]="val.status === 'valid'"
               >
-                {{ val.status === 'needs_clarification' ? 'Clarification Required' : (val.status === 'needs_confirmation' ? 'Confirmation Needed' : 'Valid & Confirmed') }}
+                {{ validationBadgeLabel() }}
               </span>
             </div>
 
@@ -465,7 +465,7 @@
                     <app-icon name="alert" [size]="20"/>
                     <div class="prompt-text">
                       <strong>{{ val.question.text }}</strong>
-                      <p class="prompt-hint">Question from the intake validator · field <code>{{ val.question.field }}</code></p>
+                      <p class="prompt-hint">We need a little more detail about your {{ clarifyQuestionFieldLabel() }}.</p>
                     </div>
                   </div>
                   <button class="btn btn-primary" (click)="openClarifyPanel()">
